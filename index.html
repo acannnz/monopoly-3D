@@ -162,10 +162,16 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .picklist{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto;margin-top:4px;padding-right:2px}
 .pick{display:flex;align-items:center;gap:10px;text-align:left;border:2px solid var(--paper-3);background:#fffaf0;color:var(--ink);border-radius:11px;padding:8px 10px}
 .pick:hover,.pick:focus-visible{border-color:var(--merah)}
-.pick .sw,.tinfo .sw{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--ink);flex:none}
-.pick .tn{flex:1;min-width:0;font-weight:800;font-size:13px;display:flex;flex-direction:column}
-.pick .tn em{font-style:normal;font-weight:600;font-size:11px;color:var(--ink-2)}
-.pick .up{font-size:11.5px;color:#1d8a46;white-space:nowrap}
+.pick .sw,.tinfo .sw,.pickinfo .sw{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--ink);flex:none}
+.pick .tn,.pickinfo .tn{flex:1;min-width:0;font-weight:800;font-size:13px;display:flex;flex-direction:column}
+.pick .tn em,.pickinfo .tn em{font-style:normal;font-weight:600;font-size:11px;color:var(--ink-2)}
+.pick .up,.pickinfo .up{font-size:11.5px;color:#1d8a46;white-space:nowrap}
+/* panel memilih tempat di dok (pengganti pop-up) */
+.pickdock{align-self:center;width:min(420px,100%);display:flex;flex-direction:column;gap:8px;background:var(--paper);color:var(--ink);border-radius:16px;padding:10px 12px;box-shadow:var(--shadow)}
+.pickinfo{display:flex;align-items:center;gap:10px;min-height:38px}
+.pickinfo .ph{font-weight:700;font-size:13px;color:var(--ink-2);line-height:1.4}
+.pickdock .ph2{font-size:11px;font-weight:600;color:var(--ink-2)}
+.pickbtns{display:flex;gap:8px}.pickbtns .btn{flex:1}
 .tinfo p{margin:10px 0 0;font-size:13.5px;line-height:1.5}
 .here{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .here span{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;color:#fff;background:var(--c)}
@@ -1677,6 +1683,63 @@ function getMarker(i) {
   g.visible = false;
   return m;
 }
+// ---- Sorotan petak: pilih tujuan/upgrade langsung di papan ----
+// petak yang boleh dipilih berdenyut terang, petak lain diredupkan, petak terpilih diberi pin
+const pickFx = { group:new THREE.Group(), key:'', eligible:[], sel:-1, mode:null, glow:[], frames:[] };
+scene.add(pickFx.group);
+const pickPin = new THREE.Mesh(new THREE.ConeGeometry(.3, .62, 4), new THREE.MeshBasicMaterial({ color:'#ffd23a' }));
+pickPin.rotation.x = Math.PI; pickPin.visible = false; scene.add(pickPin);
+function tileQuad(i, inset, mat) {
+  const s = Math.floor(i / 10), k = i % 10, L = tileLocal(i), [x, z] = rot(L.x, L.z, s);
+  const w = (k === 0 ? C : W) - inset, d = C - inset;
+  const geo = new THREE.PlaneGeometry(w, d); geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, .014, z); m.rotation.y = -s * Math.PI / 2;
+  m.renderOrder = 2; return m;
+}
+function tileFrame(i, mat) {
+  const s = Math.floor(i / 10), k = i % 10, L = tileLocal(i), [x, z] = rot(L.x, L.z, s);
+  const w = (k === 0 ? C : W) - .04, d = C - .04, b = .1;
+  const sh = new THREE.Shape(); sh.moveTo(-w / 2, -d / 2); sh.lineTo(w / 2, -d / 2); sh.lineTo(w / 2, d / 2); sh.lineTo(-w / 2, d / 2); sh.closePath();
+  const hole = new THREE.Path(); hole.moveTo(-w / 2 + b, -d / 2 + b); hole.lineTo(-w / 2 + b, d / 2 - b); hole.lineTo(w / 2 - b, d / 2 - b); hole.lineTo(w / 2 - b, -d / 2 + b); hole.closePath();
+  sh.holes.push(hole);
+  const geo = new THREE.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, .018, z); m.rotation.y = -s * Math.PI / 2;
+  m.renderOrder = 3; return m;
+}
+function clearPick() {
+  if (!pickFx.key) return;
+  pickFx.group.children.slice().forEach(m => { pickFx.group.remove(m); m.geometry.dispose(); });
+  pickFx.key = ''; pickFx.eligible = []; pickFx.glow = []; pickFx.frames = []; pickFx.sel = -1; pickFx.mode = null;
+  pickPin.visible = false;
+}
+function showPick(mode, eligible, sel) {
+  const key = mode + ':' + eligible.join(',') + ':' + sel;
+  if (key === pickFx.key) return;
+  clearPick();
+  pickFx.key = key; pickFx.mode = mode; pickFx.eligible = eligible; pickFx.sel = sel;
+  // warna pekat (bukan cahaya tambahan) supaya tetap kontras di atas petak krem
+  const hue = mode === 'startUp' ? '#17b35a' : '#f2a900';
+  const dimMat = new THREE.MeshBasicMaterial({ color:'#120a05', transparent:true, opacity:.58, depthWrite:false });
+  for (let i = 0; i < 40; i++) {
+    if (!eligible.includes(i)) { pickFx.group.add(tileQuad(i, 0, dimMat)); continue; }
+    const glow = new THREE.MeshBasicMaterial({ color:hue, transparent:true, opacity:.3, depthWrite:false });
+    const frame = new THREE.MeshBasicMaterial({ color:i === sel ? '#2a1d12' : hue, transparent:true, opacity:1, depthWrite:false });
+    const q = tileQuad(i, .04, glow), f = tileFrame(i, frame);
+    q.userData.sel = f.userData.sel = i === sel;
+    pickFx.group.add(q, f); pickFx.glow.push(q); pickFx.frames.push(f);
+  }
+  if (sel >= 0) {
+    const s = Math.floor(sel / 10), L = tileLocal(sel), [x, z] = rot(L.x, L.z, s);
+    pickPin.position.set(x, 1.2, z); pickPin.material.color.set(hue); pickPin.visible = true;
+  }
+}
+function animatePick(t) {
+  if (!pickFx.key) return;
+  const pulse = (Math.sin(t * 5) + 1) / 2;
+  for (const q of pickFx.glow) q.material.opacity = q.userData.sel ? .62 + pulse * .2 : .22 + pulse * .26;
+  if (pickPin.visible) { pickPin.position.y = 1.3 + Math.abs(Math.sin(t * 3.2)) * .4; pickPin.rotation.y = t * 2; }
+}
+
 const BLD_Z = -.3;   // bangunan di bagian dalam petak, pion tetap di bagian luar
 function placeBuildings(m, lv) {
   if (m.bld) { m.g.remove(m.bld); m.bld = null; }
@@ -1958,6 +2021,7 @@ function frame(now) {
     }
   });
   // Kamera digeser (bukan diputar) ke arah yang diikuti: sudut & zoom pilihan pemain tetap dipertahankan
+  animatePick(clock);
   if (follow) { camGoal.copy(follow); camGoal.y = 0; }
   camStep.copy(controls.target).lerp(camGoal, follow ? .12 : .06).sub(controls.target);
   controls.target.add(camStep); camera.position.add(camStep);
@@ -2180,6 +2244,13 @@ function renderDock() {
   const inJail = S0.phase === 'jail';
   const canRoll = mine && free && (S0.phase === 'roll' || inJail);
   const deciding = mine && free && DECISIONS.includes(S0.phase);
+  // memilih tempat (pindah bebas / upgrade di START) langsung di papan, tanpa pop-up
+  const picking = free && (S0.phase === 'travel' || S0.phase === 'startUp');
+  if (picking) {
+    if (pickSelFor !== S0.seq) { pickSelFor = S0.seq; pickSel = -1; }
+    showPick(S0.phase, pickEligible(), mine ? pickSel : -1);
+  } else clearPick();
+  if (picking && mine) { hideSteps(); renderPickDock(p, c); return; }
   let status;
   if (!free) status = `${esc(p.name)} sedang jalan…`;
   else if (!mine) {
@@ -2224,9 +2295,36 @@ function renderDock() {
   if (free && (S0.phase === 'roll' || inJail)) showSteps(p.pos);
   else if (free) hideSteps();
   // saat memilih tujuan lewat papan, jangan buka daftar otomatis
-  if (deciding && $('#modal').hidden && !(S0.phase === 'travel' && boardPick === S0.seq)) openDecision();
+  if (deciding && $('#modal').hidden) openDecision();
 }
 let shownPref = null;
+// petak yang boleh dipilih pada fase memilih tempat
+let pickSel = -1, pickSelFor = -1;
+function pickEligible() {
+  const pi = S0.turn, here = S0.players[pi].pos;
+  if (S0.phase === 'travel') return T.map((t, i) => i).filter(i => canTravel(i) && i !== here);
+  return Object.keys(S0.own).map(Number).filter(i => S0.own[i].o === pi && T[i].k === 'city' && S0.own[i].lv < LANDMARK_LV);
+}
+function renderPickDock(p, c) {
+  const travel = S0.phase === 'travel', sel = pickSel;
+  const lvName = (i, lv) => lv === LANDMARK_LV ? LANDMARKS[i][0] : LEVEL_NAMES[lv];
+  let info;
+  if (sel < 0) info = `<span class="ph">${travel ? 'Ketuk petak yang menyala di papan untuk memilih tujuan.' : 'Ketuk tanahmu yang menyala di papan untuk dinaikkan 1 tingkat gratis.'}</span>`;
+  else if (travel) info = tileRow(sel, sel < p.pos ? `<b class="up">lewat START +${fmt(SALARY)}</b>` : '');
+  else info = tileRow(sel, `<b class="up">${esc(lvName(sel, S0.own[sel].lv))} → ${esc(lvName(sel, S0.own[sel].lv + 1))}</b>`);
+  const title = travel ? `${esc(p.name)} bebas pergi ke mana saja` : `${esc(p.name)} tepat di START: naik 1 tingkat gratis`;
+  const go = sel < 0 ? (travel ? 'Pilih tujuan dulu' : 'Pilih tanah dulu') : travel ? `Pergi ke ${esc(T[sel].n)}` : `Naikkan ${esc(T[sel].n)}`;
+  $('#dock').innerHTML = `<div class="dcard clear"><div class="dpill" style="--c:${c}"><i></i><span>${title}</span></div>
+    <div class="pickdock"><div class="pickinfo">${info}</div>
+      ${sel >= 0 ? `<span class="ph2">Ketuk petak lain untuk ganti pilihan, atau ketuk lagi petak ini untuk ${travel ? 'langsung jalan' : 'langsung naik tingkat'}.</span>` : ''}
+      <div class="pickbtns"><button class="btn ghost" data-act="${travel ? 'travelStay' : 'startSkip'}">${travel ? 'Tetap di sini' : 'Lewati'}</button>
+      <button class="btn red" data-act="${travel ? 'pickGoTravel' : 'pickGoUp'}" ${sel < 0 ? 'disabled' : ''}>${go}</button></div></div></div>`;
+}
+function confirmPick(i) {
+  if (i < 0 || !myTurn() || playing || busy) return;
+  pickSel = -1;
+  commit(S0.phase === 'travel' ? actTravel(S0, i) : actStartUp(S0, i));
+}
 const ARC_D = 'M24,82 Q150,-14 276,82';
 function drawArcTicks() {
   const path = $('#arcPath'), g = $('#arcTicks');
@@ -2318,25 +2416,6 @@ function tileRow(i, right) {
   return `<span class="sw" style="background:${col}"></span><span class="tn">${esc(t.n)}<em>${esc(state)}</em></span>${right || ''}`;
 }
 const KIND_LABEL = { go:'Sudut START', jail:'Penjara', park:'Bebas Parkir', surprise:'Pojok Kejutan', ch:'Ambil kartu Kesempatan', cc:'Ambil kartu Dana Umum', tax:'Bayar pajak', gojail:'Masuk penjara' };
-// START: pilih satu tanah untuk naik 1 tingkat gratis
-function openStartUp() {
-  const pi = S0.turn, list = Object.keys(S0.own).map(Number).filter(i => S0.own[i].o === pi && T[i].k === 'city' && S0.own[i].lv < LANDMARK_LV)
-    .sort((a, b) => S0.own[b].lv - S0.own[a].lv || T[b].p - T[a].p);
-  const lvName = (i, lv) => lv === LANDMARK_LV ? LANDMARKS[i][0] : LEVEL_NAMES[lv];
-  openModal(`<div class="sheet"><h2>Tepat di START!</h2><p class="sub">Pilih satu tanahmu untuk naik 1 tingkat, gratis.</p>
-    <div class="picklist">${list.map(i => `<button class="pick" data-act="startUp" data-i="${i}">${tileRow(i, `<b class="up">${esc(lvName(i, S0.own[i].lv))} → ${esc(lvName(i, S0.own[i].lv + 1))}</b>`)}</button>`).join('')}</div>
-    <div class="actions"><button class="btn ghost" data-act="startSkip">Lewati</button></div></div>`);
-}
-// Bebas Parkir / tiket: pilih tujuan dari daftar, atau ketuk petak di papan (pion lalu berjalan maju)
-let boardPick = -1;
-function openTravel() {
-  const here = S0.players[S0.turn].pos;
-  const list = T.map((t, i) => i).filter(i => canTravel(i) && i !== here);
-  openModal(`<div class="sheet"><h2>Mau pergi ke mana?</h2><p class="sub">Pion berjalan maju ke tujuan, jadi lewat START tetap dapat gaji. Pilih dari daftar atau ketuk petak di papan.</p>
-    <div class="picklist">${list.map(i => `<button class="pick" data-act="travelTo" data-i="${i}">${tileRow(i)}</button>`).join('')}</div>
-    <div class="actions"><button class="btn ghost" data-act="travelStay">Tetap di sini</button><button class="btn" data-act="travelBoard">Pilih di papan</button></div></div>`);
-}
-
 // Kartu tagihan: sewa ke lawan atau pajak. Pemain melihat rinciannya dulu, lalu menekan Bayar.
 let billSoundFor = -1;
 function openBill() {
@@ -2362,8 +2441,6 @@ function openBill() {
 }
 function openDecision() {
   if (S0.phase === 'bill') return openBill();
-  if (S0.phase === 'startUp') return openStartUp();
-  if (S0.phase === 'travel') return openTravel();
   const i = S0.pending, t = T[i], pl = S0.players[S0.turn];
   const opts = tierOptions(i);
   if (selFor !== S0.seq || !opts.some(o => o.lv === selTier && o.ok)) {
@@ -2499,11 +2576,9 @@ document.addEventListener('click', e => {
     case 'buyYes': closeModal(true); commit(actBuy(S0, true)); break;
     case 'buyNo': closeModal(true); commit(actBuy(S0, false)); break;
     case 'payBill': closeModal(true); commit(actPayBill(S0)); break;
-    case 'startUp': closeModal(true); commit(actStartUp(S0, +b.dataset.i)); break;
     case 'startSkip': closeModal(true); commit(actStartUp(S0, null)); break;
-    case 'travelTo': closeModal(true); commit(actTravel(S0, +b.dataset.i)); break;
     case 'travelStay': closeModal(true); commit(actTravel(S0, null)); break;
-    case 'travelBoard': boardPick = S0.seq; closeModal(true); renderDock(); toast('Ketuk petak tujuan di papan'); break;
+    case 'pickGoTravel': case 'pickGoUp': confirmPick(pickSel); break;
     case 'tileInfoClose': closeModal(true); renderDock(); break;
     case 'buildYes': closeModal(true); commit(actBuild(S0, true, selTier)); break;
     case 'buildNo': closeModal(true); commit(actBuild(S0, false)); break;
@@ -2556,7 +2631,15 @@ renderer.domElement.addEventListener('pointerup', e => {
   const p = new THREE.Vector3();
   if (!raycaster.ray.intersectPlane(groundPlane, p)) return;
   const i = tileAt(p.x, p.z);
-  if (i >= 0) { sfx.click(); openTileInfo(i); }
+  if (i < 0) return;
+  // sedang memilih tempat: ketukan memilih petak yang menyala; ketuk lagi petak yang sama = konfirmasi
+  if (pickFx.key && myTurn() && !playing && !busy && (S0.phase === 'travel' || S0.phase === 'startUp')) {
+    if (!pickFx.eligible.includes(i)) { sfx.tick(); toast(S0.phase === 'travel' ? 'Petak itu tidak bisa dituju. Pilih yang menyala.' : 'Pilih tanahmu yang menyala.'); return; }
+    sfx.click();
+    if (pickSel === i) return confirmPick(i);
+    pickSel = i; renderDock(); return;
+  }
+  sfx.click(); openTileInfo(i);
 });
 function tileDesc(i) {
   const t = T[i];
@@ -2574,7 +2657,6 @@ function tileDesc(i) {
 function openTileInfo(i) {
   const t = T[i], o = S0.own[i];
   const here = S0.players.map((p, k) => p.pos === i && !p.out ? `<span style="--c:${colorHex(p.color)}">${esc(p.name)} ada di sini</span>` : '').join('');
-  const canFly = S0.phase === 'travel' && myTurn() && !playing && !busy && canTravel(i) && i !== S0.players[S0.turn].pos;
   let body;
   if ('p' in t) {
     const owner = o ? S0.players[o.o] : null;
@@ -2585,7 +2667,7 @@ function openTileInfo(i) {
     body = `<p class="sub">${status}</p>${deedHTML(i, S0, row)}`;
   } else body = `<div class="tinfo"><p>${esc(tileDesc(i))}</p></div>`;
   openModal(`<div class="sheet"><h2>${esc(t.n)}</h2>${body}${here ? `<div class="here">${here}</div>` : ''}
-    <div class="actions">${canFly ? `<button class="btn red" data-act="travelTo" data-i="${i}">Pergi ke sini</button>` : ''}<button class="btn ghost" data-act="tileInfoClose">Tutup</button></div></div>`);
+    <div class="actions"><button class="btn ghost" data-act="tileInfoClose">Tutup</button></div></div>`);
 }
 $('#dock').addEventListener('pointerdown', e => { if (e.target.closest('#rollBtn')) { e.preventDefault(); try { e.target.setPointerCapture(e.pointerId); } catch (_) {} startHold(); } });
 addEventListener('pointerup', () => endHold(false));
