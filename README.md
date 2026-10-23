@@ -44,8 +44,21 @@ STATIC_FILE=../index.html PORT=3077 node server.js   # dev lokal: buka http://lo
 | Server Node | `/home/arcandapp/monopoli-server/` (layanan systemd `monopoli`, port 127.0.0.1:3077) |
 | Proxy `/ws` | `deploy/nginx.conf_ws` → `/home/arcandapp/conf/web/monopoli.arcand.my.id/nginx.conf_ws` dan `nginx.ssl.conf_ws` |
 | Layanan | `deploy/monopoli.service` → `/etc/systemd/system/monopoli.service` |
+| Header keamanan | `deploy/nginx.ssl.conf_security` → `/home/arcandapp/conf/web/monopoli.arcand.my.id/nginx.ssl.conf_security` |
+
+Template Hestia domain ini `no-php` (web & backend), HSTS lewat `v-add-web-domain-ssl-hsts`.
 
 Perintah berguna: `systemctl status monopoli`, `journalctl -u monopoli -f`.
+
+## Batas pengaman server
+
+| Batas | Nilai |
+|---|---|
+| Jumlah room | 300 (saat penuh, room tak tersentuh 7 hari diganti; room tak tersentuh 30 hari dihapus) |
+| Room baru per IP | 15 per jam |
+| Koneksi per IP | 6 |
+| Kecepatan pesan | ±8 per detik per koneksi (lonjakan sampai 20) |
+| Ukuran state | 64KB |
 
 ## Struktur kode (di dalam `index.html`)
 

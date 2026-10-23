@@ -6,6 +6,7 @@ location /ws {
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;   # dipakai server untuk batas per alamat IP
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
     # Template SSL Hestia memasang "proxy_hide_header Upgrade" di level server, yang mematahkan

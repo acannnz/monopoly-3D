@@ -2473,7 +2473,7 @@ async function commit(ns) {
   if (!roomRef) return;
   busy = true; renderDock();
   try { await roomRef.set(ns); }
-  catch (e) { toast('Langkah gagal terkirim. Cek koneksi lalu coba lagi.'); }
+  catch (e) { toast(serverErr(e, 'Langkah gagal terkirim. Cek koneksi lalu coba lagi.')); }
   busy = false; renderDock();
 }
 
@@ -2696,7 +2696,7 @@ async function lobbyAct(a, b) {
       const code = genCode();
       const st = { v:1, seq:1, phase:'lobby', players:[{ id:myId, name:prefs.name || 'Pemain 1', color:prefs.color }], fx:[], log:[] };
       try { await DB.doc('rooms/' + code).set(st); }
-      catch (e) { lobbyErr = onlineKind === 'server' ? 'Room gagal dibuat. Cek koneksi internet lalu coba lagi.' : 'Room gagal dibuat. Pastikan kamu masuk ke claude.ai dan punya akses edit.'; renderLobby(); return; }
+      catch (e) { lobbyErr = onlineKind === 'server' ? serverErr(e, 'Room gagal dibuat. Cek koneksi internet lalu coba lagi.') : 'Room gagal dibuat. Pastikan kamu masuk ke claude.ai dan punya akses edit.'; renderLobby(); return; }
       roomCode = code; lsSet('mn_room', code); attachRoom(code);
       lobbyView = 'waiting'; renderLobby(); break;
     }
@@ -2736,7 +2736,7 @@ async function joinRoom(code) {
     if (color === st.players[0].color) color = COLORS.find(c => c.id !== st.players[0].color).id;
     const game = newGame([st.players[0], { id:myId, name:prefs.name || 'Pemain 2', color }], st.seq + 1);
     try { await DB.doc('rooms/' + code).set(game); }
-    catch (e) { lobbyErr = onlineKind === 'server' ? 'Gagal bergabung. Cek koneksi internet lalu coba lagi.' : 'Gagal bergabung. Pastikan kamu punya akses edit ke halaman ini.'; lobbyView = 'online'; renderLobby(); return; }
+    catch (e) { lobbyErr = onlineKind === 'server' ? serverErr(e, 'Gagal bergabung. Cek koneksi internet lalu coba lagi.') : 'Gagal bergabung. Pastikan kamu punya akses edit ke halaman ini.'; lobbyView = 'online'; renderLobby(); return; }
     lsSet('mn_room', code); attachRoom(code); return;
   }
   if (st.players.some(p => p.id === myId)) { lsSet('mn_room', code); attachRoom(code); return; }
@@ -2805,6 +2805,14 @@ function wsDB(url) {
       };
     },
   };
+}
+// pesan untuk penolakan dari server room (batas pengaman), selain itu pesan bawaan
+function serverErr(e, fallback) {
+  const code = e && e.code;
+  if (code === 'server_full') return 'Server sedang penuh. Coba lagi beberapa saat lagi.';
+  if (code === 'rate_limited') return 'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.';
+  if (code === 'too_large') return 'Data permainan terlalu besar untuk dikirim.';
+  return fallback;
 }
 async function probeWs() {
   if (!/^https?:$/.test(location.protocol)) return null;
