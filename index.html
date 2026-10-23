@@ -709,7 +709,20 @@ controls.enablePan = false; controls.minDistance = 6; controls.maxDistance = 75;
 controls.maxPolarAngle = 1.22; controls.minPolarAngle = .12;
 const camGoal = new THREE.Vector3();
 let follow = null;                       // posisi yang sedang diikuti kamera (null = lihat seluruh papan)
-const followWant = new THREE.Vector3();
+let zoomGoal = null, preLen = 0;         // jarak kamera yang dituju & jarak sebelum mulai mengikuti
+let userCam = false;                     // pemain sedang/sudah mengatur kamera sendiri selama giliran ini
+const camStep = new THREE.Vector3();
+controls.addEventListener('start', () => { userCam = true; zoomGoal = null; });
+function followThis(v) {
+  if (!follow && zoomGoal === null) preLen = camera.position.distanceTo(controls.target);
+  follow = v;
+  if (!userCam) zoomGoal = Math.max(7, fitDist * .34);
+}
+function endFollow() {
+  if (!follow) return;
+  follow = null; camGoal.set(0, 0, 0);
+  zoomGoal = userCam ? null : preLen;   // kembali ke jarak semula kecuali pemain sudah mengatur sendiri
+}
 
 scene.add(new THREE.HemisphereLight(0xfff1dd, 0x3a2a1a, .55));
 const sun = new THREE.DirectionalLight(0xffe6c0, 1.05);
@@ -1422,7 +1435,7 @@ async function movePawn(pi, from, steps) {
   for (let k = 0; k < n; k++) {
     cur = (cur + dir + 40) % 40;
     const spot = pawnSpot(cur, pi, false);
-    follow = pawns[pi].position;
+    followThis(pawns[pi].position);
     if (counting) litStep(k + 1);
     await hopPawn(pi, spot, .45, n > 8 ? 170 : 210);
   }
@@ -1434,7 +1447,7 @@ async function movePawn(pi, from, steps) {
 async function flyToJail(pi) {
   sfx.bad();
   const p = pawns[pi], from = p.position.clone(), to = pawnSpot(10, pi, true);
-  follow = p.position;
+  followThis(p.position);
   await tween(950, t => {
     const e = E.inOut(t);
     p.position.x = lerp(from.x, to.x, e); p.position.z = lerp(from.z, to.z, e);
@@ -1477,7 +1490,7 @@ async function animBuy(i, owner, hexes) {
 async function animBuild(i, lv) {
   const m = getMarker(i), old = m.bld;
   const wp = new THREE.Vector3(); m.g.localToWorld(wp.set(0, 0, BLD_Z));
-  follow = wp.clone();
+  followThis(wp.clone());
   if (old) await tween(220, t => old.scale.setScalar(Math.max(.01, 1 - E.inOut(t))));
   placeBuildings(m, lv);
   const b = m.bld; if (!b) return;
@@ -1555,13 +1568,17 @@ function frame(now) {
       u.arrow.position.y = 1.55 + Math.abs(Math.sin(clock * 3.2)) * .35; u.arrow.rotation.y = clock * 2;
     }
   });
-  if (follow) {
-    // mode ikuti: kamera mendekat ke pion (atau bangunan) yang sedang bergerak
-    camGoal.copy(follow); camGoal.y = 0;
-    followWant.copy(CAM_DIR).multiplyScalar(Math.max(7, fitDist * .34)).add(camGoal);
-    camera.position.lerp(followWant, .07);
-    controls.target.lerp(camGoal, .09);
-  } else controls.target.lerp(camGoal, .05);
+  // Kamera digeser (bukan diputar) ke arah yang diikuti: sudut & zoom pilihan pemain tetap dipertahankan
+  if (follow) { camGoal.copy(follow); camGoal.y = 0; }
+  camStep.copy(controls.target).lerp(camGoal, follow ? .12 : .06).sub(controls.target);
+  controls.target.add(camStep); camera.position.add(camStep);
+  // zoom otomatis hanya selama pemain belum menyentuh kamera
+  if (zoomGoal !== null && !userCam) {
+    camStep.copy(camera.position).sub(controls.target);
+    const L = camStep.length(), nl = L + (zoomGoal - L) * .06;
+    camera.position.copy(controls.target).add(camStep.setLength(nl));
+    if (!follow && Math.abs(zoomGoal - nl) < .05) zoomGoal = null;
+  }
   controls.update();
   renderer.render(scene, camera);
 }
@@ -1627,6 +1644,7 @@ async function pump() {
 
 async function playFx(list, st) {
   const names = st.players.map(p => p.name), hx = hexesOf(st);
+  userCam = false;   // tiap langkah baru boleh zoom otomatis lagi; sudut kamera pemain tetap dipakai
   for (const f of list) {
     switch (f.t) {
       case 'dice':
@@ -1676,7 +1694,7 @@ async function playFx(list, st) {
     }
   }
   // selesai: kamera mundur lagi ke tampilan seluruh papan
-  if (follow) { follow = null; camGoal.set(0, 0, 0); resetCam(false); }
+  endFollow();
 }
 
 /* ---- HUD ---- */
