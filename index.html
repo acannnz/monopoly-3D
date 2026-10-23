@@ -587,16 +587,13 @@ function actRoll(s0, pref, p) {
 function logBuild(s, pl, i, lv) {
   log(s, lv === LANDMARK_LV ? `${pl.name} mendirikan landmark ${LANDMARKS[i][0]} di ${T[i].n}!` : `${pl.name} membangun ${T[i].n} sampai ${LEVEL_NAMES[lv].toLowerCase()}.`);
 }
-// lv: tingkat bangunan yang langsung dibangun saat membeli (0-3, hanya untuk kota)
-function actBuy(s0, yes, lv = 0) {
+// Tahap 1: kunjungan pertama hanya membeli tanah. Bangunan baru boleh di kunjungan berikutnya.
+function actBuy(s0, yes) {
   const s = begin(s0), i = s.pending, pi = s.turn, pl = s.players[pi], t = T[i];
-  lv = t.k === 'city' ? Math.max(0, Math.min(MAX_BLD, lv | 0)) : 0;
-  const bc = lv ? stepCost(i, 0, lv) : 0;
-  if (yes && !s.own[i] && pl.money >= t.p + bc) {
-    pl.money -= t.p + bc; s.own[i] = { o:pi, lv };
+  if (yes && !s.own[i] && pl.money >= t.p) {
+    pl.money -= t.p; s.own[i] = { o:pi, lv:0 };
     s.fx.push({ t:'buy', p:pi, tile:i, amt:t.p });
     log(s, `${pl.name} membeli ${t.n} seharga ${fmt(t.p)}.`);
-    if (lv) { s.fx.push({ t:'build', p:pi, tile:i, lv, amt:bc }); logBuild(s, pl, i, lv); }
   } else log(s, `${pl.name} melewatkan ${t.n}.`);
   s.phase = 'roll';
   return endTurn(s);
@@ -1880,14 +1877,11 @@ function deedHTML(i, st, hlRow, curRow) {
   return `<div class="deed"><div class="dh" style="--g:#e9dcb6;--gt:#2a1d12"><small>SURAT HAK MILIK</small><b>${esc(t.n.toUpperCase())}</b><span>Perusahaan</span></div>
     <table><tr><td>Punya 1 perusahaan</td><td>4× angka dadu</td></tr><tr><td>Punya 2 perusahaan</td><td>10× angka dadu</td></tr></table></div>`;
 }
-// Pilihan tingkat di kartu keputusan (ala Get Rich: bangun 1-3 tingkat sekaligus, landmark setelah tingkat 3)
+// Pilihan tingkat di kartu keputusan: beli tanah dulu, lalu bangun 1-3 tingkat sekaligus, landmark setelah tingkat 3
 let selTier = 0, selFor = -1;
 function tierOptions(i) {
   const t = T[i], pl = S0.players[S0.turn];
-  if (S0.phase === 'buy') {
-    const tiers = t.k === 'city' ? [0, 1, 2, 3] : [0];
-    return tiers.map(lv => ({ lv, cost:t.p + (lv ? stepCost(i, 0, lv) : 0) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
-  }
+  if (S0.phase === 'buy') return [{ lv:0, cost:t.p, ok:t.p <= pl.money }];
   const from = S0.own[i].lv;
   const tiers = from >= MAX_BLD ? [LANDMARK_LV] : [...Array(MAX_BLD - from).keys()].map(k => from + 1 + k);
   return tiers.map(lv => ({ lv, cost:stepCost(i, from, lv) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
@@ -1905,10 +1899,9 @@ function openDecision() {
     `<button role="radio" aria-checked="${o.lv === selTier}" data-act="tier" data-lv="${o.lv}" ${o.ok ? '' : 'disabled'}><b>${name(o.lv)}</b><span>${fmt(o.cost)}</span></button>`).join('')}</div>` : '';
   const bal = `<div class="bal"><span>Uangmu</span><span>${fmt(pl.money)} → <b>${fmt(pl.money - sel.cost)}</b></span></div>`;
   if (S0.phase === 'buy') {
-    const label = selTier ? `Beli + ${LEVEL_NAMES[selTier].toLowerCase()}` : 'Beli';
-    openModal(`<div class="sheet"><h2>Tanah kosong!</h2><p class="sub">${esc(pl.name)} mendarat di ${esc(t.n)}.${t.k === 'city' ? ' Bisa langsung bangun sampai hotel.' : ''}</p>
-      ${deedHTML(i, S0, t.k === 'city' && selTier ? selTier + 1 : -1)}${pills}${bal}
-      <div class="actions"><button class="btn ghost" data-act="buyNo">Lewati</button><button class="btn red" data-act="buyYes">${label} ${fmt(sel.cost)}</button></div></div>`);
+    openModal(`<div class="sheet"><h2>Tanah kosong!</h2><p class="sub">${esc(pl.name)} mendarat di ${esc(t.n)}.${t.k === 'city' ? ' Beli tanahnya dulu; bangunan bisa didirikan saat mampir lagi.' : ''}</p>
+      ${deedHTML(i, S0, t.k === 'city' ? 0 : -1)}${bal}
+      <div class="actions"><button class="btn ghost" data-act="buyNo">Lewati</button><button class="btn red" data-act="buyYes">Beli tanah ${fmt(sel.cost)}</button></div></div>`);
   } else {
     const o = S0.own[i], lm = selTier === LANDMARK_LV;
     const sub = lm ? `Kotamu sudah hotel. Dirikan landmark ${esc(LANDMARKS[i][0])}? Sewanya jadi paling mahal.` : 'Pilih mau dibangun sampai tingkat berapa.';
@@ -1963,7 +1956,7 @@ function openMenu(view = 'main') {
 const RULES_HTML = `<div class="rules">
   <h3>Dadu</h3><p>Pilih Ganjil, Genap, atau Bebas. Tahan tombol merah, jarum bergerak dari angka kecil ke besar. Lepas saat jarum di posisi yang kamu mau. Pilihan Ganjil atau Genap selalu dituruti. Besar-kecilnya angka cenderung mengikuti posisi jarum, tapi tidak selalu tepat.</p>
   <h3>Kota</h3><p>Mendarat di tanah kosong: boleh beli. Mendarat di tanah lawan: bayar sewa. Punya satu set warna lengkap: sewa tanah jadi dua kali lipat.</p>
-  <h3>Bangun</h3><p>Saat membeli kota atau mendarat lagi di kotamu, kamu boleh langsung membangun sampai Rumah, Vila, atau Hotel sekaligus. Setelah kotamu sudah Hotel, kunjungan berikutnya membuka Landmark khas daerah itu (Monas di Jakarta, Gedung Sate di Bandung, Rumah Gadang di Padang, dan lainnya).</p>
+  <h3>Bangun</h3><p>Semua ada tahapannya. Kunjungan pertama hanya bisa membeli tanah. Saat mampir lagi ke tanahmu, kamu boleh membangun Rumah, Vila, atau Hotel (1, 2, atau 3 tingkat sekaligus). Setelah sudah Hotel, kunjungan berikutnya membuka Landmark khas daerah itu (Monas di Jakarta, Gedung Sate di Bandung, Rumah Gadang di Padang, dan lainnya).</p>
   <h3>Kembar</h3><p>Dadu kembar: main lagi. Kembar 3 kali berturut-turut: masuk penjara.</p>
   <h3>Penjara</h3><p>Keluar dengan bayar ${fmt(JAIL_FINE)}, pakai Kartu Bebas Penjara, atau lempar dadu kembar (maksimal 3 percobaan).</p>
   <h3>Bebas Parkir</h3><p>Semua pajak, denda, dan biaya kartu masuk ke kas. Siapa yang berhenti di Bebas Parkir mengambil semuanya.</p>
@@ -2009,7 +2002,7 @@ document.addEventListener('click', e => {
   if (a.startsWith('l:')) return lobbyAct(a.slice(2), b);
   switch (a) {
     case 'tier': selTier = +b.dataset.lv; openDecision(); break;
-    case 'buyYes': closeModal(true); commit(actBuy(S0, true, selTier)); break;
+    case 'buyYes': closeModal(true); commit(actBuy(S0, true)); break;
     case 'buyNo': closeModal(true); commit(actBuy(S0, false)); break;
     case 'buildYes': closeModal(true); commit(actBuild(S0, true, selTier)); break;
     case 'buildNo': closeModal(true); commit(actBuild(S0, false)); break;
