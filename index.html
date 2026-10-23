@@ -354,7 +354,7 @@ const CH = [
   { t:'Pesan ojek online, abangnya ngebut. Maju ke transportasi terdekat.', a:['nearRail'] },
   { t:'Mati listrik se-kompleks. Maju ke perusahaan terdekat untuk komplain.', a:['nearUtil'] },
   { t:'Salah naik angkot! Tukar posisi dengan pasanganmu.', a:['swap'] },
-  { t:'Dapat tiket pesawat promo tengah malam. Terbang ke petak mana saja!', a:['travel'] },
+  { t:'Dapat tiket kereta keliling Nusantara. Pergi ke petak mana saja!', a:['travel'] },
   { t:'Lupa bawa SIM, kena tilang. Bayar denda Rp50rb.', a:['pay',50] },
   { t:'Ikut flash sale tengah malam, kalap belanja. Bayar Rp120rb.', a:['pay',120] },
   { t:'Video masakanmu viral di media sosial! Terima Rp150rb dari endorse.', a:['get',150] },
@@ -394,10 +394,10 @@ const CARD_TAG = { get:'untung', fromOther:'untung', perProp:'untung', potHalf:'
 // Pojok Kejutan: separuh peluang sangat menguntungkan, separuh sangat merugikan. Tidak pernah mengambil tanah/bangunan.
 const SURPRISE = {
   good:[
-    { t:'Rezeki nomplok! Terbang ke kota termahalmu dan langsung jadi LANDMARK, gratis!', a:'bestLandmark' },
+    { t:'Rezeki nomplok! Langsung menuju kota termahalmu dan jadikan LANDMARK, gratis!', a:'bestLandmark' },
     { t:'Menang undian berhadiah! Terima Rp1jt.', a:'get', x:1000 },
     { t:'Bantuan renovasi dari pemerintah! Semua bangunanmu naik 1 tingkat (paling tinggi hotel).', a:'upAll' },
-    { t:'Tiket emas! Terbang gratis ke petak mana pun yang kamu mau.', a:'travel' },
+    { t:'Tiket emas! Pergi ke petak mana pun yang kamu mau.', a:'travel' },
     { t:'Investor asing datang. Pasanganmu wajib menyetor Rp400rb kepadamu.', a:'fromOther', x:400 },
     { t:'Hibah tanah! Kota termahal yang belum dimiliki siapa pun langsung jadi milikmu.', a:'freeLand' },
   ],
@@ -504,12 +504,11 @@ function refillParity(s, pi) {
   if (parityOf(pl) < 1) { pl.par = 1; s.fx.push({ t:'msg', text:'Kuota Ganjil/Genap terisi lagi!' }); }
   else pl.par = 1;
 }
-// pindah langsung (terbang) tanpa melewati START; mendarat tepat di START tetap dapat gaji
-function flyTo(s, pi, dest) {
-  const pl = s.players[pi];
-  s.fx.push({ t:'fly', p:pi, from:pl.pos, to:dest });
-  pl.pos = dest;
-  if (dest === 0) { pl.money += SALARY; s.fx.push({ t:'gain', p:pi, amt:SALARY, why:'Gaji START' }); refillParity(s, pi); }
+// pindah bebas (Bebas Parkir, tiket, kejutan): jalan maju petak demi petak ke tujuan,
+// jadi kalau melewati START tetap dapat gaji dan kuota Ganjil/Genap terisi
+function walkTo(s, pi, dest) {
+  const steps = (dest - s.players[pi].pos + 40) % 40;
+  if (steps) moveBy(s, pi, steps);
 }
 // kota milik pemain yang tingkatnya paling tinggi maxLv
 const ownCities = (s, pi, maxLv) => Object.keys(s.own).map(Number).filter(i => s.own[i].o === pi && T[i].k === 'city' && s.own[i].lv <= maxLv);
@@ -519,7 +518,7 @@ function freeUpgrade(s, pi, i) {
   s.fx.push({ t:'build', p:pi, tile:i, lv:o.lv, amt:0 });
   logBuild(s, s.players[pi], i, o.lv);
 }
-const canTravel = i => i !== 20 && i !== 30;   // tidak bisa terbang ke Bebas Parkir atau Pojok Kejutan
+const canTravel = i => i !== 20 && i !== 30;   // tidak bisa memilih Bebas Parkir atau Pojok Kejutan sebagai tujuan
 function nearestAhead(pos, list) { return Math.min(...list.map(j => (j - pos + 40) % 40 || 40)); }
 function doSurprise(s, pi, depth) {
   const pl = s.players[pi], opp = other(pi), good = Math.random() < .5;
@@ -538,7 +537,7 @@ function doSurprise(s, pi, depth) {
   switch (c.a) {
     case 'bestLandmark': {
       const i = ownCities(s, pi, MAX_BLD).sort((a, b) => T[b].p - T[a].p)[0];
-      flyTo(s, pi, i);
+      walkTo(s, pi, i);
       s.own[i].lv = LANDMARK_LV;
       s.fx.push({ t:'build', p:pi, tile:i, lv:LANDMARK_LV, amt:0 });
       logBuild(s, pl, i, LANDMARK_LV);
@@ -550,7 +549,7 @@ function doSurprise(s, pi, depth) {
     case 'fromOther': pay(s, opp, pi, Math.min(c.x, s.players[opp].money), 'Setoran investor'); break;
     case 'freeLand': {
       const i = unowned.sort((a, b) => T[b].p - T[a].p)[0];
-      flyTo(s, pi, i);
+      walkTo(s, pi, i);
       s.own[i] = { o:pi, lv:0 };
       s.fx.push({ t:'buy', p:pi, tile:i, amt:0 });
       log(s, `${pl.name} mendapat ${T[i].n} gratis.`);
@@ -559,7 +558,7 @@ function doSurprise(s, pi, depth) {
     case 'toOpp': {
       const byRent = oppProps.slice().sort((a, b) => rentOf(s, b) - rentOf(s, a));
       const i = c.x === 'max' ? byRent[0] : c.x === 'min' ? byRent[byRent.length - 1] : oppProps[Math.floor(Math.random() * oppProps.length)];
-      flyTo(s, pi, i);
+      walkTo(s, pi, i);
       if (depth < 3) resolve(s, pi, depth + 1);
       break;
     }
@@ -695,7 +694,7 @@ function resolve(s, pi, depth = 0) {
         s.fx.push({ t:'gain', p:pi, amt:a, why:'Kas Bebas Parkir', fromPot:true });
         log(s, `${pl.name} dapat kas Bebas Parkir ${fmt(a)}!`);
       }
-      // lalu boleh terbang ke petak mana saja
+      // lalu boleh pergi ke petak mana saja
       s.phase = 'travel'; s.pending = i;
       break;
     case 'go':
@@ -734,14 +733,14 @@ function actStartUp(s0, i) {
   s.phase = 'roll';
   return endTurn(s);
 }
-// Terbang dari Bebas Parkir / tiket: pilih tujuan (dest = null berarti tetap di tempat)
+// Pergi bebas dari Bebas Parkir / tiket: pilih tujuan (dest = null berarti tetap di tempat)
 function actTravel(s0, dest) {
   const s = begin(s0), pi = s.turn, pl = s.players[pi];
   if (s.phase !== 'travel') return null;
   s.phase = 'roll'; s.pending = null;
   if (dest == null || dest === pl.pos || !canTravel(dest)) { log(s, `${pl.name} memilih tetap di tempat.`); return endTurn(s); }
-  log(s, `${pl.name} terbang ke ${T[dest].n}.`);
-  flyTo(s, pi, dest);
+  log(s, `${pl.name} pergi ke ${T[dest].n}.`);
+  walkTo(s, pi, dest);
   resolve(s, pi, 1);
   return finish(s);
 }
@@ -1258,7 +1257,7 @@ function drawCorner(x, i, X, Y, s) {
     x.fillStyle = '#8fd3f0'; x.fillRect(-26, -40, 24, 20); x.fillRect(4, -40, 24, 20);
     x.fillStyle = INK; x.beginPath(); x.arc(-38, 24, 15, 0, 7); x.arc(38, 24, 15, 0, 7); x.fill();
     x.fillStyle = '#c8302a'; x.font = `38px ${FD}`; x.fillText('PARKIR', 0, 86);
-    x.fillStyle = '#2453b3'; x.font = `800 15px ${FB}`; x.fillText('+ TERBANG KE MANA SAJA', 0, 112);
+    x.fillStyle = '#2453b3'; x.font = `800 15px ${FB}`; x.fillText('+ BEBAS PERGI KE MANA SAJA', 0, 112);
   } else if (t.k === 'surprise') {
     // latar ungu bergaris dan kotak hadiah
     x.fillStyle = '#efe4fb'; x.fillRect(X + 3, Y + 3, s - 6, s - 6);
@@ -1814,7 +1813,8 @@ async function movePawn(pi, from, steps) {
     const spot = pawnSpot(cur, pi, false);
     followThis(pawns[pi].position);
     if (counting) litStep(k + 1);
-    await hopPawn(pi, spot, .45, n > 8 ? 170 : 210);
+    // langkah makin cepat untuk perjalanan jauh (pindah bebas bisa sampai 39 petak)
+    await hopPawn(pi, spot, n > 20 ? .3 : .45, n > 20 ? 95 : n > 12 ? 125 : n > 8 ? 170 : 210);
   }
   await sleep(250);
   hideSteps();
@@ -1832,7 +1832,7 @@ async function flyToJail(pi) {
   });
   p.rotation.y = 0; p.position.y = 0;
 }
-// terbang melengkung ke petak tujuan (Bebas Parkir, tiket, kejutan, tukar posisi)
+// terbang melengkung ke petak tujuan (dipakai kartu tukar posisi)
 async function flyPawn(pi, dest, follow = true) {
   const p = pawns[pi], from = p.position.clone(), to = pawnSpot(dest, pi, false);
   if (follow) followThis(p.position);
@@ -2185,7 +2185,7 @@ function renderDock() {
   else if (!mine) {
     const what = S0.phase === 'buy' ? `memutuskan beli ${T[S0.pending].n}` : S0.phase === 'build' ? `membangun di ${T[S0.pending].n}`
       : S0.phase === 'bill' ? `membayar ${lc1(S0.bill.why)}` : S0.phase === 'startUp' ? 'memilih tanah untuk naik gratis'
-      : S0.phase === 'travel' ? 'memilih tujuan terbang' : inJail ? 'mencoba keluar penjara' : 'melempar dadu';
+      : S0.phase === 'travel' ? 'memilih tujuan' : inJail ? 'mencoba keluar penjara' : 'melempar dadu';
     status = `Menunggu ${esc(p.name)} ${esc(what)}…`;
   } else if (deciding) status = `Giliran ${esc(p.name)} · putuskan di kartu`;
   else status = `Giliran ${esc(p.name)}${inJail ? ' · butuh dadu kembar' : ''}`;
@@ -2327,12 +2327,12 @@ function openStartUp() {
     <div class="picklist">${list.map(i => `<button class="pick" data-act="startUp" data-i="${i}">${tileRow(i, `<b class="up">${esc(lvName(i, S0.own[i].lv))} → ${esc(lvName(i, S0.own[i].lv + 1))}</b>`)}</button>`).join('')}</div>
     <div class="actions"><button class="btn ghost" data-act="startSkip">Lewati</button></div></div>`);
 }
-// Bebas Parkir / tiket: pilih tujuan terbang dari daftar, atau ketuk petak di papan
+// Bebas Parkir / tiket: pilih tujuan dari daftar, atau ketuk petak di papan (pion lalu berjalan maju)
 let boardPick = -1;
 function openTravel() {
   const here = S0.players[S0.turn].pos;
   const list = T.map((t, i) => i).filter(i => canTravel(i) && i !== here);
-  openModal(`<div class="sheet"><h2>Terbang ke mana?</h2><p class="sub">Pilih tujuan dari daftar, atau ketuk petak langsung di papan.</p>
+  openModal(`<div class="sheet"><h2>Mau pergi ke mana?</h2><p class="sub">Pion berjalan maju ke tujuan, jadi lewat START tetap dapat gaji. Pilih dari daftar atau ketuk petak di papan.</p>
     <div class="picklist">${list.map(i => `<button class="pick" data-act="travelTo" data-i="${i}">${tileRow(i)}</button>`).join('')}</div>
     <div class="actions"><button class="btn ghost" data-act="travelStay">Tetap di sini</button><button class="btn" data-act="travelBoard">Pilih di papan</button></div></div>`);
 }
@@ -2447,7 +2447,7 @@ const RULES_HTML = `<div class="rules">
   <h3>Kembar</h3><p>Dadu kembar: main lagi. Kembar 3 kali berturut-turut: masuk penjara.</p>
   <h3>START</h3><p>Setiap melewati START dapat gaji ${fmt(SALARY)}. Berhenti tepat di START: pilih satu tanahmu untuk naik 1 tingkat gratis.</p>
   <h3>Penjara</h3><p>Keluar dengan bayar ${fmt(JAIL_FINE)}, pakai Kartu Bebas Penjara, atau lempar dadu kembar (maksimal 3 percobaan).</p>
-  <h3>Bebas Parkir</h3><p>Semua pajak, denda, dan biaya kartu masuk ke kas. Siapa yang berhenti di sini mengambil semuanya, lalu boleh terbang ke petak mana saja.</p>
+  <h3>Bebas Parkir</h3><p>Semua pajak, denda, dan biaya kartu masuk ke kas. Siapa yang berhenti di sini mengambil semuanya, lalu boleh pergi ke petak mana saja. Pion berjalan maju, jadi kalau melewati START tetap dapat gaji.</p>
   <h3>Pojok Kejutan</h3><p>Undian aksi besar: bisa sangat menguntungkan (misalnya langsung jadi landmark gratis) atau sangat merugikan (misalnya diculik ke kota termahal lawan). Tanah dan bangunan tidak pernah hilang karena kejutan.</p>
   <h3>Info daerah</h3><p>Ketuk petak mana saja di papan untuk melihat pemilik, tingkat bangunan, dan sewanya.</p>
   <h3>Menang</h3><p>Lawan bangkrut, atau akhiri permainan kapan saja dan bandingkan total kekayaan.</p></div>`;
@@ -2527,7 +2527,7 @@ document.addEventListener('click', e => {
 $('#btnMenu').addEventListener('click', () => openMenu('main'));
 $('#btnCam').addEventListener('click', () => { camGoal.set(0, 0, 0); resetCam(false); });
 
-/* ---- Ketuk petak di papan: lihat info daerah (dan pilih tujuan saat terbang) ---- */
+/* ---- Ketuk petak di papan: lihat info daerah (dan pilih tujuan saat pergi bebas) ---- */
 // titik di permukaan papan -> nomor petak (kebalikan dari tileLocal + rot)
 function tileAt(x, z) {
   const h = S / 2;
@@ -2563,7 +2563,7 @@ function tileDesc(i) {
   switch (t.k) {
     case 'go': return `Setiap melewati START dapat gaji ${fmt(SALARY)}. Kalau berhenti tepat di sini, pilih satu tanahmu untuk naik 1 tingkat gratis.`;
     case 'jail': return `Kalau cuma mampir, hanya berkunjung. Keluar dari penjara: bayar ${fmt(JAIL_FINE)}, pakai Kartu Bebas Penjara, atau lempar dadu kembar (maksimal 3 kali).`;
-    case 'park': return `Ambil semua uang di kas (sekarang ${fmt(S0.pot)}), lalu boleh terbang ke petak mana saja.`;
+    case 'park': return `Ambil semua uang di kas (sekarang ${fmt(S0.pot)}), lalu boleh pergi ke petak mana saja (pion berjalan maju, lewat START tetap dapat gaji).`;
     case 'surprise': return 'Undian aksi besar: separuh peluang sangat menguntungkan, separuh sangat merugikan. Tanah dan bangunan tidak pernah hilang karena kejutan.';
     case 'ch': return `Ambil satu kartu Kesempatan. Ada ${CH.length} kartu: kebanyakan jalan-jalan, ada untung, ada rugi.`;
     case 'cc': return `Ambil satu kartu Dana Umum. Ada ${CC.length} kartu: kebanyakan soal uang sehari-hari.`;
@@ -2585,7 +2585,7 @@ function openTileInfo(i) {
     body = `<p class="sub">${status}</p>${deedHTML(i, S0, row)}`;
   } else body = `<div class="tinfo"><p>${esc(tileDesc(i))}</p></div>`;
   openModal(`<div class="sheet"><h2>${esc(t.n)}</h2>${body}${here ? `<div class="here">${here}</div>` : ''}
-    <div class="actions">${canFly ? `<button class="btn red" data-act="travelTo" data-i="${i}">Terbang ke sini</button>` : ''}<button class="btn ghost" data-act="tileInfoClose">Tutup</button></div></div>`);
+    <div class="actions">${canFly ? `<button class="btn red" data-act="travelTo" data-i="${i}">Pergi ke sini</button>` : ''}<button class="btn ghost" data-act="tileInfoClose">Tutup</button></div></div>`);
 }
 $('#dock').addEventListener('pointerdown', e => { if (e.target.closest('#rollBtn')) { e.preventDefault(); try { e.target.setPointerCapture(e.pointerId); } catch (_) {} startHold(); } });
 addEventListener('pointerup', () => endHold(false));
