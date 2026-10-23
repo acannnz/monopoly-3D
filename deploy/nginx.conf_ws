@@ -8,4 +8,7 @@ location /ws {
     proxy_set_header Host $host;
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
+    # Template SSL Hestia memasang "proxy_hide_header Upgrade" di level server, yang mematahkan
+    # jabat tangan WebSocket. Mendefinisikan proxy_hide_header di sini membuat aturan itu tidak diwarisi.
+    proxy_hide_header X-Powered-By;
 }
