@@ -24,7 +24,28 @@ lalu buka http://localhost:8080.
 ## Mode bermain
 
 - **Satu HP (hot-seat):** berjalan di mana saja, progres tersimpan di browser.
-- **Online (HP masing-masing):** saat ini memakai penyimpanan bersama milik Claude Artifacts, jadi hanya berfungsi bila dibuka sebagai artifact di claude.ai. Untuk hosting sendiri perlu backend realtime (rencana: Cloudflare Worker + Durable Object).
+- **Online (HP masing-masing):** di domain sendiri memakai server WebSocket di `server/` (alamat `/ws` pada domain yang sama). Saat dibuka sebagai artifact di claude.ai, game memakai penyimpanan bersama artifact.
+
+## Server online (`server/`)
+
+Node.js + [`ws`](https://github.com/websockets/ws). Satu room = satu dokumen state (kode 4 huruf), disimpan ke `rooms.json` dan disiarkan ke semua perangkat di room itu.
+
+```bash
+cd server
+npm install
+STATIC_FILE=../index.html PORT=3077 node server.js   # dev lokal: buka http://localhost:3077
+```
+
+## Deploy (VPS dengan HestiaCP)
+
+| Bagian | Lokasi di VPS |
+|---|---|
+| Halaman | `/home/arcandapp/web/monopoli.arcand.my.id/public_html/index.html` |
+| Server Node | `/home/arcandapp/monopoli-server/` (layanan systemd `monopoli`, port 127.0.0.1:3077) |
+| Proxy `/ws` | `deploy/nginx.conf_ws` → `/home/arcandapp/conf/web/monopoli.arcand.my.id/nginx.conf_ws` dan `nginx.ssl.conf_ws` |
+| Layanan | `deploy/monopoli.service` → `/etc/systemd/system/monopoli.service` |
+
+Perintah berguna: `systemctl status monopoli`, `journalctl -u monopoli -f`.
 
 ## Struktur kode (di dalam `index.html`)
 

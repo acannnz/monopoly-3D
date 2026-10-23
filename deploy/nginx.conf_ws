@@ -1,0 +1,11 @@
+# Diletakkan di /home/arcandapp/conf/web/monopoli.arcand.my.id/ sebagai nginx.conf_ws dan nginx.ssl.conf_ws
+# (Hestia memasukkannya ke blok server domain). Meneruskan WebSocket /ws ke server Node lokal.
+location /ws {
+    proxy_pass http://127.0.0.1:3077;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+}

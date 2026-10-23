@@ -2,7 +2,7 @@
 <html lang="id">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Monopoli Nusantara</title>
+<title>Monopoli Arcand</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
@@ -159,6 +159,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .tiers button span{font-size:11px;font-weight:700;color:var(--ink-2)}
 .tiers button[aria-checked="true"]{border-color:var(--merah);background:#c8302a14;box-shadow:0 0 0 2px var(--merah)}
 .tiers button:disabled{opacity:.4;cursor:default}
+.due{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding:10px 12px;border-radius:12px;background:#c8302a14;border:2px dashed var(--merah)}
+.due span{font-size:12.5px;font-weight:800;color:var(--merah)}
+.due b{font-family:var(--font-display);font-weight:400;font-size:24px;color:var(--merah);font-variant-numeric:tabular-nums}
 .bal{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-top:12px;padding:8px 10px;background:var(--paper-2);border-radius:10px;font-variant-numeric:tabular-nums}
 .bal b{font-family:var(--font-display);font-weight:400}
 
@@ -202,6 +205,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .logo .l1{display:block;background:var(--merah);color:#fff;font-family:var(--font-display);font-size:clamp(40px,12vw,58px);line-height:1;padding:12px 22px 10px;
   border:4px solid #fff;border-radius:10px;letter-spacing:.02em;text-shadow:3px 3px 0 var(--merah-2)}
 .logo .l2{display:inline-block;background:var(--paper);color:var(--ink);font-family:var(--font-display);font-size:clamp(16px,5vw,22px);letter-spacing:.32em;padding:5px 12px 5px 18px;margin-top:-6px;border:3px solid var(--ink);border-radius:6px}
+.logo .l3{display:block;margin-top:8px;font-size:12px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--emas)}
 .tag{text-align:center;color:var(--paper-2);font-size:14px;margin:0;line-height:1.5;text-wrap:balance}
 .ticket{border:0;border-radius:14px;padding:14px 16px;text-align:left;background:var(--paper);color:var(--ink);box-shadow:0 4px 0 var(--paper-3),var(--shadow);display:flex;flex-direction:column;gap:2px}
 .ticket b{font-size:16px;font-weight:800}
@@ -370,6 +374,7 @@ const houseCost = i => GROUPS[T[i].g].h;
 const MAX_BLD = 3, LANDMARK_LV = 4, RENT_IDX = [0, 1, 3, 4, 5];
 const stepCost = (i, from, to) => { let c = 0; for (let k = from + 1; k <= to; k++) c += houseCost(i) * (k === LANDMARK_LV ? 2 : 1); return c; };
 const other = pi => pi === 0 ? 1 : 0;
+const lc1 = s => s.charAt(0).toLowerCase() + s.slice(1);   // "Sewa Jakarta" -> "sewa Jakarta"
 
 /* =========================================================
    MESIN ATURAN (murni: state lama -> state baru + daftar efek)
@@ -512,13 +517,13 @@ function resolve(s, pi, depth = 0) {
       } else if (o.o === pi) {
         if (t.k === 'city' && o.lv < LANDMARK_LV && pl.money >= stepCost(i, o.lv, o.lv + 1)) { s.phase = 'build'; s.pending = i; }
       } else {
-        const r = rentOf(s, i);
-        log(s, `${pl.name} bayar sewa ${t.n} ${fmt(r)} ke ${s.players[o.o].name}.`);
-        pay(s, pi, o.o, r, `Sewa ${t.n}`);
+        // tagihan sewa ditampilkan dulu; uang baru berpindah saat pemain menekan Bayar
+        s.phase = 'bill'; s.pending = i;
+        s.bill = { to:o.o, amt:rentOf(s, i), why:`Sewa ${t.n}`, lv:o.lv };
       }
       break;
     }
-    case 'tax': log(s, `${pl.name} bayar ${t.n} ${fmt(t.amt)}.`); pay(s, pi, -2, t.amt, t.n); break;
+    case 'tax': s.phase = 'bill'; s.pending = i; s.bill = { to:-2, amt:t.amt, why:t.n }; break;
     case 'park':
       if (s.pot > 0) {
         const a = s.pot; s.pot = 0; pl.money += a;
@@ -544,7 +549,18 @@ function endTurn(s) {
   s.phase = s.players[s.turn].jail > 0 ? 'jail' : 'roll';
   return s;
 }
-const finish = s => (s.phase === 'buy' || s.phase === 'build' || s.phase === 'over') ? s : endTurn(s);
+const finish = s => (s.phase === 'buy' || s.phase === 'build' || s.phase === 'bill' || s.phase === 'over') ? s : endTurn(s);
+// Bayar tagihan (sewa atau pajak) yang sudah dilihat pemain
+function actPayBill(s0) {
+  const s = begin(s0), pi = s.turn, pl = s.players[pi], b = s.bill;
+  if (!b || s.phase !== 'bill') return null;
+  log(s, b.to >= 0 ? `${pl.name} bayar ${lc1(b.why)} ${fmt(b.amt)} ke ${s.players[b.to].name}.` : `${pl.name} bayar ${b.why} ${fmt(b.amt)}.`);
+  pay(s, pi, b.to, b.amt, b.why);
+  s.bill = null;
+  if (s.phase === 'over') return s;
+  s.phase = 'roll';
+  return endTurn(s);
+}
 
 function actRoll(s0, pref, p) {
   const s = begin(s0), pi = s.turn, pl = s.players[pi];
@@ -927,8 +943,8 @@ function drawCenter(x) {
   x.font = `150px ${FD}`; x.textAlign = 'center'; x.fillStyle = '#7a1612'; x.fillText('MONOPOLI', -6, 50);
   x.fillStyle = '#fff'; x.fillText('MONOPOLI', -12, 44);
   x.fillStyle = PAPER; rr(x, -240, 92, 460, 74, 10); x.fill(); x.strokeStyle = INK; x.lineWidth = 5; x.stroke();
-  x.fillStyle = INK; x.font = `48px ${FD}`; x.fillText('N U S A N T A R A', -10, 146);
-  x.font = `700 22px ${FB}`; x.fillStyle = '#1f6e46'; x.fillText('EDISI NOSTALGIA · DARI SABANG SAMPAI MERAUKE', -10, 210);
+  x.fillStyle = INK; x.font = `52px ${FD}`; x.fillText('A R C A N D', -10, 148);
+  x.font = `700 22px ${FB}`; x.fillStyle = '#1f6e46'; x.fillText('EDISI NUSANTARA · DARI SABANG SAMPAI MERAUKE', -10, 210);
   x.restore();
 }
 function drawBoard() {
@@ -1767,11 +1783,12 @@ function renderDock() {
   const mine = myTurn(), free = !playing && !busy;
   const inJail = S0.phase === 'jail';
   const canRoll = mine && free && (S0.phase === 'roll' || inJail);
-  const deciding = mine && free && (S0.phase === 'buy' || S0.phase === 'build');
+  const deciding = mine && free && (S0.phase === 'buy' || S0.phase === 'build' || S0.phase === 'bill');
   let status;
   if (!free) status = `${esc(p.name)} sedang jalan…`;
   else if (!mine) {
-    const what = S0.phase === 'buy' ? `memutuskan beli ${T[S0.pending].n}` : S0.phase === 'build' ? `membangun di ${T[S0.pending].n}` : inJail ? 'mencoba keluar penjara' : 'melempar dadu';
+    const what = S0.phase === 'buy' ? `memutuskan beli ${T[S0.pending].n}` : S0.phase === 'build' ? `membangun di ${T[S0.pending].n}`
+      : S0.phase === 'bill' ? `membayar ${lc1(S0.bill.why)}` : inJail ? 'mencoba keluar penjara' : 'melempar dadu';
     status = `Menunggu ${esc(p.name)} ${esc(what)}…`;
   } else if (deciding) status = `Giliran ${esc(p.name)} · putuskan di kartu`;
   else status = `Giliran ${esc(p.name)}${inJail ? ' · butuh dadu kembar' : ''}`;
@@ -1886,7 +1903,29 @@ function tierOptions(i) {
   const tiers = from >= MAX_BLD ? [LANDMARK_LV] : [...Array(MAX_BLD - from).keys()].map(k => from + 1 + k);
   return tiers.map(lv => ({ lv, cost:stepCost(i, from, lv) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
 }
+// Kartu tagihan: sewa ke lawan atau pajak. Pemain melihat rinciannya dulu, lalu menekan Bayar.
+function openBill() {
+  const i = S0.pending, t = T[i], pl = S0.players[S0.turn], b = S0.bill;
+  const short = pl.money < b.amt;
+  const warn = short ? `<p class="err" style="margin-top:10px">Uangmu kurang ${fmt(b.amt - pl.money)}. Bangunan atau tanahmu akan dijual otomatis untuk menutupnya.</p>` : '';
+  const bal = `<div class="bal"><span>Uangmu</span><span>${fmt(pl.money)} → <b>${fmt(Math.max(0, pl.money - b.amt))}</b></span></div>`;
+  if (b.to >= 0) {
+    const owner = S0.players[b.to];
+    const row = t.k === 'city' ? (b.lv ? b.lv + 1 : (b.amt > t.rent[0] ? 1 : 0)) : -1;
+    const lvl = t.k !== 'city' ? '' : b.lv === LANDMARK_LV ? ` · ${LANDMARKS[i][0]}` : b.lv ? ` · ${LEVEL_NAMES[b.lv]}` : '';
+    openModal(`<div class="sheet"><h2>Tagihan sewa</h2>
+      <p class="sub">${esc(t.n)} milik <b style="color:${colorHex(owner.color)}">${esc(owner.name)}</b>${esc(lvl)}${t.k === 'util' ? ` · dadu ${S0.lastDice}` : ''}</p>
+      ${deedHTML(i, S0, row)}
+      <div class="due"><span>Harus dibayar</span><b>${fmt(b.amt)}</b></div>${bal}${warn}
+      <div class="actions"><button class="btn red" data-act="payBill">Bayar ${fmt(b.amt)} ke ${esc(owner.name)}</button></div></div>`);
+  } else {
+    openModal(`<div class="sheet"><h2>${esc(t.n)}</h2><p class="sub">Uangnya masuk ke kas Bebas Parkir.</p>
+      <div class="due"><span>Harus dibayar</span><b>${fmt(b.amt)}</b></div>${bal}${warn}
+      <div class="actions"><button class="btn red" data-act="payBill">Bayar ${fmt(b.amt)}</button></div></div>`);
+  }
+}
 function openDecision() {
+  if (S0.phase === 'bill') return openBill();
   const i = S0.pending, t = T[i], pl = S0.players[S0.turn];
   const opts = tierOptions(i);
   if (selFor !== S0.seq || !opts.some(o => o.lv === selTier && o.ok)) {
@@ -2004,6 +2043,7 @@ document.addEventListener('click', e => {
     case 'tier': selTier = +b.dataset.lv; openDecision(); break;
     case 'buyYes': closeModal(true); commit(actBuy(S0, true)); break;
     case 'buyNo': closeModal(true); commit(actBuy(S0, false)); break;
+    case 'payBill': closeModal(true); commit(actPayBill(S0)); break;
     case 'buildYes': closeModal(true); commit(actBuild(S0, true, selTier)); break;
     case 'buildNo': closeModal(true); commit(actBuild(S0, false)); break;
     case 'reopen': openDecision(); break;
@@ -2046,7 +2086,7 @@ function renderLobby() {
   const L = $('#lobby');
   if (lobbyView === 'none') { L.hidden = true; return; }
   L.hidden = false;
-  const logo = `<div class="logo"><span class="l1">MONOPOLI</span><span class="l2">NUSANTARA</span></div>`;
+  const logo = `<div class="logo"><span class="l1">MONOPOLI</span><span class="l2">ARCAND</span><span class="l3">Edisi Nusantara</span></div>`;
   const err = lobbyErr ? `<p class="err">${esc(lobbyErr)}</p>` : '';
   let h = '';
   if (lobbyView === 'home') {
@@ -2057,7 +2097,10 @@ function renderLobby() {
       ${savedRoom && onBtn ? `<button class="ticket" data-act="l:resumeRoom"><b>Kembali ke room ${esc(savedRoom)}</b><span>Lanjutkan permainan online</span></button>` : ''}
       <button class="ticket primary" data-act="l:goOnline" ${onBtn ? '' : 'disabled'}><b>Main online</b><span>Masing-masing pakai HP sendiri</span></button>
       <button class="ticket" data-act="l:goLocal"><b>Main berdua di satu HP</b><span>Gantian pegang perangkat</span></button>
-      <p class="note">${onlineState === 'checking' ? 'Memeriksa mode online…' : onlineState === 'off' ? 'Mode online hanya berjalan saat halaman ini dibuka di claude.ai dengan akun yang sudah masuk.' : 'Mode online: kalian berdua membuka link halaman ini dari akun claude.ai masing-masing.'}</p>`;
+      <p class="note">${onlineState === 'checking' ? 'Memeriksa mode online…'
+        : onlineState === 'off' ? 'Mode online belum tersedia di alamat ini. Main berdua di satu HP tetap bisa.'
+        : onlineKind === 'server' ? 'Mode online: buka alamat ini di HP masing-masing. Satu orang membuat room, satunya memasukkan kode.'
+        : 'Mode online: kalian berdua membuka link halaman ini dari akun claude.ai masing-masing.'}</p>`;
   } else if (lobbyView === 'local') {
     h = `${logo}<div class="panel"><h3>Pemain 1</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color', prefs.color2)}</div>
       <div class="panel"><h3>Pemain 2</h3><input type="text" id="inName2" maxlength="14" placeholder="Nama pasangan" value="${esc(prefs.name2)}">${swatches('color2', prefs.color)}</div>
@@ -2129,7 +2172,7 @@ async function lobbyAct(a, b) {
       const code = genCode();
       const st = { v:1, seq:1, phase:'lobby', players:[{ id:myId, name:prefs.name || 'Pemain 1', color:prefs.color }], fx:[], log:[] };
       try { await DB.doc('rooms/' + code).set(st); }
-      catch (e) { lobbyErr = 'Room gagal dibuat. Pastikan kamu masuk ke claude.ai dan punya akses edit.'; renderLobby(); return; }
+      catch (e) { lobbyErr = onlineKind === 'server' ? 'Room gagal dibuat. Cek koneksi internet lalu coba lagi.' : 'Room gagal dibuat. Pastikan kamu masuk ke claude.ai dan punya akses edit.'; renderLobby(); return; }
       roomCode = code; lsSet('mn_room', code); attachRoom(code);
       lobbyView = 'waiting'; renderLobby(); break;
     }
@@ -2169,7 +2212,7 @@ async function joinRoom(code) {
     if (color === st.players[0].color) color = COLORS.find(c => c.id !== st.players[0].color).id;
     const game = newGame([st.players[0], { id:myId, name:prefs.name || 'Pemain 2', color }], st.seq + 1);
     try { await DB.doc('rooms/' + code).set(game); }
-    catch (e) { lobbyErr = 'Gagal bergabung. Pastikan kamu punya akses edit ke halaman ini.'; lobbyView = 'online'; renderLobby(); return; }
+    catch (e) { lobbyErr = onlineKind === 'server' ? 'Gagal bergabung. Cek koneksi internet lalu coba lagi.' : 'Gagal bergabung. Pastikan kamu punya akses edit ke halaman ini.'; lobbyView = 'online'; renderLobby(); return; }
     lsSet('mn_room', code); attachRoom(code); return;
   }
   if (st.players.some(p => p.id === myId)) { lsSet('mn_room', code); attachRoom(code); return; }
@@ -2188,10 +2231,71 @@ function attachRoom(code) {
   }, () => toast('Koneksi ke room terputus. Muat ulang halaman.'));
 }
 
+// Penyimpanan room lewat server WebSocket sendiri (/ws di domain yang sama).
+// Bentuknya meniru db artifact (doc().get/set/onSnapshot) supaya kode lobby & game tidak perlu tahu bedanya.
+function wsDB(url) {
+  let ws = null, open = false, closed = false, nextId = 1;
+  const pending = {}, subs = {}, outbox = [];
+  const opened = new Promise(res => {
+    const connect = () => {
+      if (closed) return;
+      ws = new WebSocket(url);
+      ws.onopen = () => {
+        open = true; res(true);
+        for (const code in subs) ws.send(JSON.stringify({ t:'sub', code }));
+        while (outbox.length) ws.send(outbox.shift());
+      };
+      ws.onmessage = ev => {
+        let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.t === 'res' && pending[m.id]) {
+          const p = pending[m.id]; delete pending[m.id]; clearTimeout(p.timer);
+          m.ok ? p.resolve(m) : p.reject({ code:m.error || 'unavailable', message:m.error || 'gagal' });
+        } else if (m.t === 'snap' && subs[m.code]) {
+          subs[m.code]({ exists:m.data != null, data:() => m.data });
+        }
+      };
+      ws.onclose = () => { open = false; if (!closed) setTimeout(connect, 1500); };
+    };
+    connect();
+  });
+  const raw = msg => { const s = JSON.stringify(msg); open ? ws.send(s) : outbox.push(s); };
+  const request = msg => new Promise((resolve, reject) => {
+    const id = nextId++;
+    const timer = setTimeout(() => { delete pending[id]; reject({ code:'unavailable', message:'timeout' }); }, 8000);
+    pending[id] = { resolve, reject, timer };
+    raw(Object.assign({ id }, msg));
+  });
+  return {
+    opened,
+    close() { closed = true; if (ws) ws.close(); },
+    doc(p) {
+      const code = p.split('/')[1];
+      return {
+        get: () => request({ t:'get', code }).then(r => ({ exists:r.exists, data:() => r.data })),
+        set: data => request({ t:'set', code, data }).then(() => {}),
+        onSnapshot(next) {
+          subs[code] = next; raw({ t:'sub', code });
+          return () => { delete subs[code]; raw({ t:'unsub', code }); };
+        },
+      };
+    },
+  };
+}
+async function probeWs() {
+  if (!/^https?:$/.test(location.protocol)) return null;
+  const db = wsDB((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  const ok = await Promise.race([db.opened, sleep(4000).then(() => false)]);
+  if (!ok) { db.close(); return null; }
+  return db;
+}
+let onlineKind = null; // 'artifact' | 'server'
 async function initOnline() {
+  const wsTry = probeWs();
   let tries = 0;
   while (!(window.claude && window.claude.use) && tries < 15) { await sleep(200); tries++; }
   try { DB = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch (e) { DB = null; }
+  if (DB) { onlineKind = 'artifact'; wsTry.then(w => w && w.close()); }
+  else { DB = await wsTry; onlineKind = DB ? 'server' : null; }
   onlineState = DB ? 'ready' : 'off';
   if (lobbyView === 'home') renderLobby();
 }
