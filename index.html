@@ -1,0 +1,2196 @@
+<!doctype html>
+<html lang="id">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Monopoli Nusantara</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: meja kayu 3D layar penuh, chip pemain di atas, dok dadu di bawah, kartu kertas sebagai modal. Satu tampilan malam yang hangat. */
+:root{
+  color-scheme: dark;
+  --teak:#1b120c; --teak-2:#2a1b12; --teak-3:#3b281a;
+  --paper:#f6ebcf; --paper-2:#eadbb3; --paper-3:#dcc995;
+  --ink:#2a1d12; --ink-2:#6a5640;
+  --merah:#c8302a; --merah-2:#97211c; --emas:#e6a93a; --mint:#cfe5cf; --biru:#1f4fa8;
+  --font-display:'Alfa Slab One', Rockwell, Georgia, serif;
+  --font-body:'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--teak);color:var(--paper);font-family:var(--font-body);overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-offset:2px}
+#app{position:fixed;inset:0;overflow:hidden;user-select:none;-webkit-user-select:none}
+#stage{position:absolute;inset:0}
+#stage canvas{display:block;touch-action:none}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;left:0;right:0;top:0;z-index:5;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:start;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));pointer-events:none}
+#hud[hidden]{display:none!important}
+#hud>*{pointer-events:auto}
+.chip{--c:#888;background:var(--paper);color:var(--ink);border-radius:14px;padding:8px 10px;display:flex;gap:9px;align-items:center;box-shadow:var(--shadow);
+  border:2px solid transparent;min-width:0;transition:transform .35s cubic-bezier(.3,1.6,.5,1),border-color .3s,box-shadow .3s;position:relative}
+.chip.right{flex-direction:row-reverse;text-align:right}
+.chip.active{border-color:var(--c);transform:translateY(3px);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 35%,transparent),var(--shadow)}
+.chip.out{opacity:.5;filter:grayscale(1)}
+.tok{flex:none;width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff8 0 18%,transparent 19%),var(--c);box-shadow:inset 0 -3px 0 #0003}
+.chip .info{min-width:0;display:flex;flex-direction:column;gap:1px}
+.chip .nm{font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:5px;align-items:center}
+.chip.right .nm{justify-content:flex-end}
+.chip .me{font-size:9px;letter-spacing:.08em;background:var(--ink);color:var(--paper);padding:1px 5px;border-radius:4px;font-weight:700}
+.chip .money{font-family:var(--font-display);font-size:18px;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.chip .meta{font-size:10.5px;color:var(--ink-2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.float{position:absolute;top:100%;left:50%;transform:translateX(-50%);font-family:var(--font-display);font-size:18px;pointer-events:none;
+  text-shadow:0 2px 0 #0008;animation:floatUp 1.4s ease-out forwards;white-space:nowrap}
+.float.plus{color:#7ee08a}.float.minus{color:#ff8a7a}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,-6px) scale(.7)}15%{opacity:1;transform:translate(-50%,4px) scale(1.15)}100%{opacity:0;transform:translate(-50%,34px) scale(1)}}
+.mid{display:flex;flex-direction:column;align-items:center;gap:6px}
+.iconrow{display:flex;gap:6px}
+.ibtn{width:36px;height:36px;border-radius:11px;border:0;background:var(--teak-3);color:var(--paper);display:grid;place-items:center;box-shadow:inset 0 -2px 0 #0005}
+.ibtn svg{width:18px;height:18px}
+.pot{font-size:10.5px;font-weight:700;color:var(--paper-3);text-align:center;line-height:1.2;max-width:96px}
+.pot b{display:block;font-family:var(--font-display);font-weight:400;font-size:13px;color:var(--emas)}
+
+/* ---------- Toast & stamp ---------- */
+#toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 92px);transform:translateX(-50%);z-index:6;pointer-events:none;
+  background:#000b;color:var(--paper);padding:8px 14px;border-radius:999px;font-weight:700;font-size:13px;max-width:calc(100% - 32px);text-align:center;
+  opacity:0;transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+#stamp{position:absolute;left:50%;top:40%;z-index:7;pointer-events:none;font-family:var(--font-display);font-size:clamp(34px,10vw,64px);color:var(--c,#c8302a);
+  padding:4px 18px;border:6px solid currentColor;border-radius:14px;background:#f6ebcfe6;opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(2.2);white-space:nowrap}
+#stamp.go{animation:stamp 1.5s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes stamp{0%{opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(2.4)}18%{opacity:1;transform:translate(-50%,-50%) rotate(-9deg) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(.95)}}
+#diceResult{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 132px);transform:translateX(-50%);z-index:6;pointer-events:none;
+  background:var(--paper);color:var(--ink);border-radius:14px;padding:8px 14px;box-shadow:var(--shadow);text-align:center;opacity:0;transition:opacity .3s,transform .3s}
+#diceResult.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+#diceResult .sum{font-family:var(--font-display);font-size:26px;line-height:1}
+#diceResult .acc{font-size:11.5px;font-weight:700;color:var(--ink-2);margin-top:3px;white-space:nowrap}
+#diceResult .acc.hit{color:#1d8a46}
+
+/* ---------- Dock ---------- */
+#dock{position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:5;width:min(460px,100%);
+  padding:0 max(12px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(12px,env(safe-area-inset-left,0px))}
+#dock[hidden]{display:none!important}
+.dcard{background:var(--paper);color:var(--ink);border-radius:18px;padding:12px 14px 14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.dhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.dhead .who{font-weight:800;font-size:14px;display:flex;align-items:center;gap:7px;min-width:0}
+.dhead .who i{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
+.dhead .hint{font-size:11px;color:var(--ink-2);font-weight:600;text-align:right}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--paper-2);border-radius:12px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;padding:8px 4px;border-radius:9px;font-weight:800;font-size:13px;color:var(--ink-2)}
+.seg button[aria-checked="true"]{background:var(--ink);color:var(--paper);box-shadow:0 2px 0 #0004}
+.gauge{display:flex;flex-direction:column;gap:3px}
+.track{position:relative;height:22px;border-radius:11px;overflow:hidden;background:linear-gradient(90deg,#3fa7c9 0%,#5cc28a 30%,#f2cf1d 55%,#f08a24 78%,#d8322c 100%);box-shadow:inset 0 2px 4px #0006}
+.track .fill{position:absolute;inset:0 auto 0 0;width:0;background:#fff5;mix-blend-mode:overlay}
+.track .ticks{position:absolute;inset:0;display:grid;grid-template-columns:repeat(11,1fr)}
+.track .ticks i{border-right:1px solid #0003}
+.track .needle{position:absolute;top:-3px;bottom:-3px;width:6px;margin-left:-3px;left:0;background:var(--ink);border-radius:3px;box-shadow:0 0 0 2px var(--paper)}
+.scale{display:grid;grid-template-columns:repeat(11,1fr);font-size:10px;font-weight:800;color:var(--ink-2);text-align:center;font-variant-numeric:tabular-nums}
+.scale span:first-child{text-align:left}.scale span:last-child{text-align:right}
+.scale-l{display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.1em;font-weight:800;color:var(--ink-2)}
+.roll{border:0;border-radius:14px;padding:15px 10px;font-family:var(--font-display);font-size:19px;letter-spacing:.03em;color:#fff;
+  background:linear-gradient(180deg,var(--merah),var(--merah-2));box-shadow:0 5px 0 #5e1310, 0 8px 18px #0006;touch-action:none;-webkit-touch-callout:none;transition:transform .08s,box-shadow .08s}
+.roll.hold{transform:translateY(4px);box-shadow:0 1px 0 #5e1310,0 3px 8px #0006}
+.roll:disabled{filter:grayscale(.6) brightness(.8);cursor:default}
+.lgr{display:flex;flex-direction:column;align-items:center}
+.arc{width:100%;max-width:330px;height:auto;overflow:visible;display:block}
+.lgr-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;width:100%;max-width:340px;margin-top:-30px}
+.pill{border:0;border-radius:999px;padding:12px 6px;font-family:var(--font-display);font-size:15px;letter-spacing:.04em;color:#fff;
+  background:linear-gradient(180deg,#6fb4ff,#2f6fe0);box-shadow:0 4px 0 #1b4594,0 6px 12px #0004;opacity:.72;transition:transform .12s,opacity .12s,box-shadow .12s}
+.pill[aria-pressed="true"]{opacity:1;transform:translateY(2px) scale(1.05);box-shadow:0 2px 0 #1b4594,0 0 0 4px var(--emas),0 6px 14px #0005}
+.roll.round{width:104px;height:104px;border-radius:50%;padding:0;font-size:19px;line-height:1.05;
+  background:radial-gradient(circle at 35% 30%,#ff8fc8 0 12%,transparent 13%),linear-gradient(180deg,#e04d9c,#b21f6c);box-shadow:0 6px 0 #6e0f40,0 10px 22px #0006}
+.roll.round.hold{transform:translateY(5px) scale(.97);box-shadow:0 1px 0 #6e0f40,0 4px 10px #0006}
+.lgr-hint{font-size:11px;font-weight:700;color:var(--paper);text-shadow:0 1px 3px #000,0 0 8px #000;margin-top:8px;text-align:center}
+/* panel bar transparan: hanya busur dan tombol yang terlihat di atas papan */
+.dcard.clear{background:transparent;box-shadow:none;padding:0 0 2px;gap:6px}
+.dpill{align-self:center;display:flex;gap:7px;align-items:center;max-width:100%;background:#1b120cd9;color:var(--paper);padding:6px 13px;border-radius:999px;font-weight:800;font-size:12.5px;box-shadow:0 4px 12px #0005}
+.dpill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dpill i{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
+.dots.light i{background:#fff}
+.arc{filter:drop-shadow(0 6px 10px #0007)}
+.lgr.idle .pill{opacity:.45}
+.lgr.idle .pill[aria-pressed="true"]{opacity:.85}
+.lgr.idle .roll.round:disabled{filter:saturate(.55) brightness(.85)}
+.pill:disabled{cursor:default}
+#arcKnob circle:first-child{transform-box:fill-box;transform-origin:center}
+#arcKnob.pulse circle:first-child{animation:knob .62s ease-out}
+@keyframes knob{0%{transform:scale(1)}35%{transform:scale(1.7);fill:#ffd56b}100%{transform:scale(1)}}
+#flash{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 48%,color-mix(in srgb,var(--c,#ffd56b) 55%,#fff) 0,transparent 55%)}
+#flash.go{animation:flash .62s ease-out}
+@keyframes flash{0%{opacity:0}30%{opacity:.55}100%{opacity:0}}
+.jailrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--paper);color:var(--ink);border:1.5px dashed #c56a12;border-radius:12px;padding:8px}
+.jailrow p{flex:1 1 140px;font-size:12px;font-weight:700;margin:0}
+.btn{border:0;border-radius:11px;padding:10px 14px;font-weight:800;font-size:13.5px;background:var(--ink);color:var(--paper);box-shadow:0 3px 0 #0006}
+.btn.ghost{background:var(--paper-2);color:var(--ink);box-shadow:0 3px 0 var(--paper-3)}
+.btn.red{background:var(--merah);color:#fff;box-shadow:0 3px 0 var(--merah-2)}
+.btn.gold{background:var(--emas);color:var(--ink);box-shadow:0 3px 0 #a0711c}
+.btn:disabled{opacity:.45;cursor:default}
+.wait{display:flex;align-items:center;gap:10px;font-weight:700;font-size:13.5px}
+.dots{display:inline-flex;gap:4px}.dots i{width:7px;height:7px;border-radius:50%;background:var(--ink-2);animation:bop 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes bop{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+
+/* ---------- Modal ---------- */
+#modal{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:#0008;backdrop-filter:blur(2px);
+  padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));overflow-y:auto}
+.sheet{width:min(360px,100%);background:var(--paper);color:var(--ink);border-radius:18px;padding:16px;box-shadow:var(--shadow);animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.85) translateY(20px);opacity:0}to{transform:none;opacity:1}}
+.sheet h2{font-family:var(--font-display);font-weight:400;font-size:22px;margin:0 0 4px;text-wrap:balance}
+.sheet .sub{font-size:12.5px;color:var(--ink-2);font-weight:600;margin:0 0 12px}
+.actions{display:flex;gap:8px;margin-top:14px}.actions .btn{flex:1}
+.deed{background:#fffaf0;border:2px solid var(--ink);border-radius:6px;padding:6px;box-shadow:4px 4px 0 #0002}
+.deed .dh{background:var(--g,#ccc);color:var(--gt,#fff);border:2px solid var(--ink);text-align:center;padding:7px 6px 8px}
+.deed .dh small{display:block;font-size:9.5px;letter-spacing:.14em;font-weight:800;opacity:.9}
+.deed .dh b{display:block;font-family:var(--font-display);font-weight:400;font-size:24px;letter-spacing:.02em;line-height:1.1}
+.deed .dh span{font-size:11px;font-weight:700;opacity:.9}
+.deed table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px;font-variant-numeric:tabular-nums}
+.deed td{padding:3.5px 6px;color:var(--ink)}.deed td:last-child{text-align:right;font-weight:800}
+.deed tr.hl td{background:#f2cf1d66}
+.deed tr.cur td{background:#1f9d5533}
+.deed .foot{border-top:1.5px solid var(--ink);margin-top:6px;padding-top:6px;font-size:11.5px;text-align:center;font-weight:600;color:var(--ink-2)}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:6px;margin-top:12px}
+.tiers button{border:2px solid var(--paper-3);background:#fffaf0;color:var(--ink);border-radius:11px;padding:8px 4px;display:flex;flex-direction:column;gap:2px;align-items:center;font-variant-numeric:tabular-nums}
+.tiers button b{font-size:12.5px;font-weight:800;text-align:center;line-height:1.15}
+.tiers button span{font-size:11px;font-weight:700;color:var(--ink-2)}
+.tiers button[aria-checked="true"]{border-color:var(--merah);background:#c8302a14;box-shadow:0 0 0 2px var(--merah)}
+.tiers button:disabled{opacity:.4;cursor:default}
+.bal{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-top:12px;padding:8px 10px;background:var(--paper-2);border-radius:10px;font-variant-numeric:tabular-nums}
+.bal b{font-family:var(--font-display);font-weight:400}
+
+.cardwrap{perspective:900px;width:min(300px,86vw);aspect-ratio:1.55;cursor:pointer}
+.gcard{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:flip .9s cubic-bezier(.3,1.3,.5,1) .15s forwards;transform:rotateY(180deg) scale(.6)}
+@keyframes flip{to{transform:rotateY(0) scale(1)}}
+.gcard .face{position:absolute;inset:0;border-radius:14px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:16px 18px;text-align:center;border:3px solid var(--ink);box-shadow:var(--shadow)}
+.gcard .front{background:#fffaf0;color:var(--ink)}
+.gcard .front small{font-family:var(--font-display);font-size:16px;letter-spacing:.05em;color:var(--kc)}
+.gcard .front p{font-size:15.5px;font-weight:700;margin:8px 0 0;line-height:1.35;text-wrap:balance}
+.gcard .back{transform:rotateY(180deg);background:var(--kc);color:#fff;font-family:var(--font-display);font-size:64px}
+.gcard.k-ch{--kc:#e07a14}.gcard.k-cc{--kc:#2563b8}
+.taphint{text-align:center;font-size:11px;color:var(--paper-3);margin-top:10px;font-weight:600}
+
+.menu-list{display:flex;flex-direction:column;gap:8px}
+.menu-list .btn{text-align:left}
+.plist{display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto}
+.plist h3{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:6px}
+.plist h3 i{width:12px;height:12px;border-radius:50%;background:var(--c)}
+.prow{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--paper-3)}
+.prow .sw{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--ink);flex:none}
+.prow span:nth-child(2){flex:1;font-weight:700}
+.prow em{font-style:normal;font-weight:700;color:var(--ink-2);font-size:11.5px}
+.log{max-height:55vh;overflow-y:auto;font-size:12.5px;display:flex;flex-direction:column-reverse;gap:6px}
+.log p{margin:0;padding-bottom:6px;border-bottom:1px dashed var(--paper-3)}
+.rules{font-size:13px;line-height:1.5;max-height:60vh;overflow-y:auto}
+.rules h3{font-size:13px;margin:12px 0 2px;text-transform:uppercase;letter-spacing:.06em}
+.rules p{margin:0}
+.win{text-align:center}
+.win .crown{font-family:var(--font-display);font-size:16px;letter-spacing:.2em;color:var(--emas)}
+.win h2{font-size:28px}
+.scores{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.scores div{display:flex;justify-content:space-between;background:var(--paper-2);padding:8px 10px;border-radius:10px;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+
+/* ---------- Lobby ---------- */
+#lobby{position:absolute;inset:0;z-index:15;overflow-y:auto;background:radial-gradient(ellipse at 50% 30%,#1b120c55,#1b120ccc 70%);
+  padding:calc(env(safe-area-inset-top,0px) + 24px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(16px,env(safe-area-inset-left,0px))}
+.lob{width:min(400px,100%);margin:0 auto;display:flex;flex-direction:column;gap:14px;align-items:stretch}
+.logo{align-self:center;transform:rotate(-4deg);margin:10px 0 4px;text-align:center;filter:drop-shadow(0 10px 18px #0008)}
+.logo .l1{display:block;background:var(--merah);color:#fff;font-family:var(--font-display);font-size:clamp(40px,12vw,58px);line-height:1;padding:12px 22px 10px;
+  border:4px solid #fff;border-radius:10px;letter-spacing:.02em;text-shadow:3px 3px 0 var(--merah-2)}
+.logo .l2{display:inline-block;background:var(--paper);color:var(--ink);font-family:var(--font-display);font-size:clamp(16px,5vw,22px);letter-spacing:.32em;padding:5px 12px 5px 18px;margin-top:-6px;border:3px solid var(--ink);border-radius:6px}
+.tag{text-align:center;color:var(--paper-2);font-size:14px;margin:0;line-height:1.5;text-wrap:balance}
+.ticket{border:0;border-radius:14px;padding:14px 16px;text-align:left;background:var(--paper);color:var(--ink);box-shadow:0 4px 0 var(--paper-3),var(--shadow);display:flex;flex-direction:column;gap:2px}
+.ticket b{font-size:16px;font-weight:800}
+.ticket span{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.ticket.primary{background:var(--merah);color:#fff;box-shadow:0 4px 0 var(--merah-2),var(--shadow)}
+.ticket.primary span{color:#ffe1dc}
+.ticket:disabled{opacity:.55;cursor:default}
+.note{font-size:12px;color:var(--paper-3);line-height:1.5;margin:0;text-align:center}
+.panel{background:var(--paper);color:var(--ink);border-radius:16px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.panel h3{margin:0;font-size:14px;letter-spacing:.04em}
+.panel label{font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--ink-2)}
+.panel input[type=text]{width:100%;font:inherit;font-size:16px;font-weight:700;padding:10px 12px;border-radius:10px;border:2px solid var(--paper-3);background:#fffaf0;color:var(--ink)}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatches button{width:34px;height:34px;border-radius:50%;border:3px solid #fff;background:var(--c);box-shadow:0 0 0 2px var(--paper-3)}
+.swatches button[aria-checked="true"]{box-shadow:0 0 0 3px var(--ink)}
+.swatches button:disabled{opacity:.2}
+.code{font-family:var(--font-display);font-size:52px;letter-spacing:.18em;text-align:center;color:var(--merah);line-height:1.1}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.back{background:none;border:0;color:var(--paper-2);font-weight:700;font-size:13px;align-self:center;padding:8px}
+.err{color:var(--merah);font-size:12.5px;font-weight:700;margin:0}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@media (max-width:380px){.chip .money{font-size:15px}.chip{padding:7px 8px;gap:6px}.tok{width:24px;height:24px}}
+</style>
+
+<div id="app">
+  <div id="stage"></div>
+  <header id="hud" hidden>
+    <div class="chip" id="chip0"></div>
+    <div class="mid">
+      <div class="iconrow">
+        <button class="ibtn" id="btnCam" aria-label="Atur ulang kamera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+        <button class="ibtn" id="btnMenu" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      </div>
+      <div class="pot" id="pot"></div>
+    </div>
+    <div class="chip right" id="chip1"></div>
+  </header>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="stamp"></div>
+  <div id="flash"></div>
+  <div id="diceResult"></div>
+  <section id="dock" hidden></section>
+  <div id="lobby"></div>
+  <div id="modal" hidden></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* =========================================================
+   DATA PAPAN
+   ========================================================= */
+const W = 1, C = 1.6, S = 2 * C + 9 * W;           // lebar petak, sudut, sisi papan (unit dunia)
+const START_MONEY = 1500, SALARY = 200, JAIL_FINE = 50;   // satuan: ribu rupiah
+
+const GROUPS = {
+  coklat:  { c:'#8a5a3b', t:'#fff', h:50 },
+  biruMuda:{ c:'#8fd3f0', t:'#2a1d12', h:50 },
+  pink:    { c:'#d4428a', t:'#fff', h:100 },
+  oranye:  { c:'#f08a24', t:'#fff', h:100 },
+  merah:   { c:'#d8322c', t:'#fff', h:150 },
+  kuning:  { c:'#f2cf1d', t:'#2a1d12', h:150 },
+  hijau:   { c:'#1f9d55', t:'#fff', h:200 },
+  biru:    { c:'#2453b3', t:'#fff', h:200 },
+};
+const city = (n, r, g, p, rent) => ({ n, r, k:'city', g, p, rent });
+const T = [
+  { n:'START', k:'go' },
+  city('Jayapura','Papua','coklat',60,[2,10,30,90,160,250]),
+  { n:'Dana Umum', k:'cc' },
+  city('Merauke','Papua Selatan','coklat',60,[4,20,60,180,320,450]),
+  { n:'Pajak Penghasilan', k:'tax', amt:200, ic:'coin' },
+  { n:'Stasiun Gambir', k:'rail', p:200, ic:'train' },
+  city('Ambon','Maluku','biruMuda',100,[6,30,90,270,400,550]),
+  { n:'Kesempatan', k:'ch' },
+  city('Ternate','Maluku Utara','biruMuda',100,[6,30,90,270,400,550]),
+  city('Kupang','Nusa Tenggara Timur','biruMuda',120,[8,40,100,300,450,600]),
+  { n:'Penjara', k:'jail' },
+  city('Manado','Sulawesi Utara','pink',140,[10,50,150,450,625,750]),
+  { n:'Perusahaan Listrik', k:'util', p:150, ic:'bulb' },
+  city('Palu','Sulawesi Tengah','pink',140,[10,50,150,450,625,750]),
+  city('Makassar','Sulawesi Selatan','pink',160,[12,60,180,500,700,900]),
+  { n:'Pelabuhan Tanjung Perak', k:'rail', p:200, ic:'ship' },
+  city('Pontianak','Kalimantan Barat','oranye',180,[14,70,200,550,750,950]),
+  { n:'Dana Umum', k:'cc' },
+  city('Banjarmasin','Kalimantan Selatan','oranye',180,[14,70,200,550,750,950]),
+  city('Balikpapan','Kalimantan Timur','oranye',200,[16,80,220,600,800,1000]),
+  { n:'Bebas Parkir', k:'park' },
+  city('Padang','Sumatera Barat','merah',220,[18,90,250,700,875,1050]),
+  { n:'Kesempatan', k:'ch' },
+  city('Palembang','Sumatera Selatan','merah',220,[18,90,250,700,875,1050]),
+  city('Medan','Sumatera Utara','merah',240,[20,100,300,750,925,1100]),
+  { n:'Bandara Ngurah Rai', k:'rail', p:200, ic:'plane' },
+  city('Semarang','Jawa Tengah','kuning',260,[22,110,330,800,975,1150]),
+  city('Yogyakarta','DI Yogyakarta','kuning',260,[22,110,330,800,975,1150]),
+  { n:'Perusahaan Air Minum', k:'util', p:150, ic:'drop' },
+  city('Surabaya','Jawa Timur','kuning',280,[24,120,360,850,1025,1200]),
+  { n:'Masuk Penjara', k:'gojail' },
+  city('Lombok','Nusa Tenggara Barat','hijau',300,[26,130,390,900,1100,1275]),
+  city('Labuan Bajo','Nusa Tenggara Timur','hijau',300,[26,130,390,900,1100,1275]),
+  { n:'Dana Umum', k:'cc' },
+  city('Bandung','Jawa Barat','hijau',320,[28,150,450,1000,1200,1400]),
+  { n:'Stasiun Tugu', k:'rail', p:200, ic:'train' },
+  { n:'Kesempatan', k:'ch' },
+  city('Bali','Bali','biru',350,[35,175,500,1100,1300,1500]),
+  { n:'Pajak Barang Mewah', k:'tax', amt:100, ic:'ring' },
+  city('Jakarta','DKI Jakarta','biru',400,[50,200,600,1400,1700,2000]),
+];
+const RAILS = [5,15,25,35], UTILS = [12,28];
+
+const CH = [
+  { t:'Maju ke START. Terima gaji Rp200rb.', a:['to',0] },
+  { t:'Liburan ke Bali! Maju ke Bali.', a:['to',37] },
+  { t:'Pulang kampung ke Medan. Lewat START? Terima Rp200rb.', a:['to',24] },
+  { t:'Naik kereta dari Stasiun Gambir.', a:['to',5] },
+  { t:'Mundur 3 langkah.', a:['back',3] },
+  { t:'Kena tilang polisi. Bayar denda Rp15rb.', a:['pay',15] },
+  { t:'Bank membagikan dividen. Terima Rp50rb.', a:['get',50] },
+  { t:'Masuk penjara! Langsung, tanpa melewati START.', a:['jail'] },
+  { t:'Kartu Bebas Penjara. Simpan sampai dibutuhkan.', a:['free'] },
+  { t:'Renovasi properti: bayar Rp25rb per tingkat bangunan dan Rp100rb per landmark.', a:['repair',25,100] },
+  { t:'Kamu terpilih jadi ketua RT. Traktir pasanganmu Rp50rb.', a:['payOther',50] },
+  { t:'Pinjaman bank cair. Terima Rp150rb.', a:['get',150] },
+  { t:'Jalan-jalan ke ibu kota. Maju ke Jakarta.', a:['to',39] },
+  { t:'Naik kapal dari Pelabuhan Tanjung Perak.', a:['to',15] },
+];
+const CC = [
+  { t:'Bank salah hitung, untung buat kamu. Terima Rp200rb.', a:['get',200] },
+  { t:'Bayar biaya dokter Rp50rb.', a:['pay',50] },
+  { t:'Dapat THR Lebaran! Terima Rp100rb.', a:['get',100] },
+  { t:'Menang arisan RT. Terima Rp100rb.', a:['get',100] },
+  { t:'Juara lomba panjat pinang 17 Agustus. Terima Rp50rb.', a:['get',50] },
+  { t:'Bayar uang sekolah Rp50rb.', a:['pay',50] },
+  { t:'Hari ulang tahunmu! Pasanganmu memberi kado Rp50rb.', a:['fromOther',50] },
+  { t:'Maju ke START. Terima gaji Rp200rb.', a:['to',0] },
+  { t:'Masuk penjara! Langsung, tanpa melewati START.', a:['jail'] },
+  { t:'Kartu Bebas Penjara. Simpan sampai dibutuhkan.', a:['free'] },
+  { t:'Bayar biaya rumah sakit Rp100rb.', a:['pay',100] },
+  { t:'Dapat warisan dari nenek. Terima Rp100rb.', a:['get',100] },
+  { t:'Perbaikan jalan kampung: bayar Rp40rb per tingkat bangunan dan Rp115rb per landmark.', a:['repair',40,115] },
+  { t:'Jual hasil panen di pasar. Terima Rp50rb.', a:['get',50] },
+];
+
+const COLORS = [
+  { id:'merah', hex:'#e0352d', name:'Merah' },
+  { id:'biru', hex:'#2f6fe0', name:'Biru' },
+  { id:'hijau', hex:'#1fa35a', name:'Hijau' },
+  { id:'ungu', hex:'#8a4fd6', name:'Ungu' },
+  { id:'kuning', hex:'#f0b921', name:'Kuning' },
+  { id:'pink', hex:'#ec5fa4', name:'Pink' },
+];
+const colorHex = id => (COLORS.find(c => c.id === id) || COLORS[0]).hex;
+
+const fmt = v => {
+  const a = Math.abs(v);
+  const s = a >= 1000 ? (a / 1000).toFixed(2).replace(/\.?0+$/, '').replace('.', ',') + 'jt' : a + 'rb';
+  return (v < 0 ? '-' : '') + 'Rp' + s;
+};
+const groupTiles = g => T.map((t, i) => t.g === g ? i : -1).filter(i => i >= 0);
+const houseCost = i => GROUPS[T[i].g].h;
+// Tingkat bangunan: 0 tanah, 1 rumah, 2 vila, 3 hotel, 4 landmark.
+// Tingkat 1-3 boleh dibangun sekaligus; landmark hanya bisa setelah tingkat 3, harganya dua kali biaya tingkat.
+const MAX_BLD = 3, LANDMARK_LV = 4, RENT_IDX = [0, 1, 3, 4, 5];
+const stepCost = (i, from, to) => { let c = 0; for (let k = from + 1; k <= to; k++) c += houseCost(i) * (k === LANDMARK_LV ? 2 : 1); return c; };
+const other = pi => pi === 0 ? 1 : 0;
+
+/* =========================================================
+   MESIN ATURAN (murni: state lama -> state baru + daftar efek)
+   ========================================================= */
+function shuffle(n) {
+  const a = [...Array(n).keys()];
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function newGame(players, seq) {
+  return {
+    v:1, seq, phase:'roll', turn:0,
+    players: players.map(p => ({ id:p.id, name:p.name, color:p.color, money:START_MONEY, pos:0, jail:0, free:0, out:false })),
+    own:{}, pot:0, deck:{ ch:shuffle(CH.length), cc:shuffle(CC.length), chI:0, ccI:0 },
+    again:false, dbl:0, pending:null, lastDice:7, winner:null, endWhy:null,
+    log:['Permainan dimulai. Semoga beruntung!'], fx:[],
+  };
+}
+function begin(s0) { const s = JSON.parse(JSON.stringify(s0)); s.seq++; s.fx = []; return s; }
+function log(s, t) { s.log.push(t); if (s.log.length > 40) s.log.splice(0, s.log.length - 40); }
+
+// Dadu ala Let's Get Rich: pilihan ganjil/genap selalu dituruti, sedangkan bar hanya mengarahkan besar-kecilnya angka (tetap ada unsur acak).
+function rollDice(pref, p) {
+  const target = 2 + p * 10, combos = []; let tot = 0;
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) {
+    const sum = a + b;
+    if ((pref === 'ganjil' && sum % 2 === 0) || (pref === 'genap' && sum % 2 === 1)) continue;
+    let w = Math.exp(-((sum - target) ** 2) / (2 * 1.15 * 1.15));
+    w += 0.035;
+    combos.push([a, b, w]); tot += w;
+  }
+  let r = Math.random() * tot;
+  for (const c of combos) { r -= c[2]; if (r <= 0) return { d:[c[0], c[1]], target }; }
+  const last = combos[combos.length - 1];
+  return { d:[last[0], last[1]], target };
+}
+
+const ownsGroup = (s, pi, g) => groupTiles(g).every(i => s.own[i] && s.own[i].o === pi);
+function rentOf(s, i) {
+  const t = T[i], o = s.own[i];
+  if (!o) return 0;
+  if (t.k === 'city') return o.lv > 0 ? t.rent[RENT_IDX[o.lv]] : t.rent[0] * (ownsGroup(s, o.o, t.g) ? 2 : 1);
+  if (t.k === 'rail') { const n = RAILS.filter(j => s.own[j] && s.own[j].o === o.o).length; return 25 * 2 ** (n - 1); }
+  if (t.k === 'util') { const n = UTILS.filter(j => s.own[j] && s.own[j].o === o.o).length; return s.lastDice * (n === 2 ? 10 : 4); }
+  return 0;
+}
+function worth(s, pi) {
+  let w = s.players[pi].money;
+  for (const k in s.own) { const o = s.own[k]; if (o.o === pi) w += T[k].p + (o.lv ? stepCost(+k, 0, o.lv) : 0); }
+  return w;
+}
+function moveBy(s, pi, steps) {
+  const pl = s.players[pi], from = pl.pos, to = ((from + steps) % 40 + 40) % 40;
+  s.fx.push({ t:'move', p:pi, from, steps });
+  pl.pos = to;
+  if (steps > 0 && to < from) {
+    pl.money += SALARY;
+    s.fx.push({ t:'gain', p:pi, amt:SALARY, why:'Gaji lewat START' });
+    log(s, `${pl.name} melewati START, terima ${fmt(SALARY)}.`);
+  }
+}
+function sendJail(s, pi) {
+  const pl = s.players[pi];
+  pl.pos = 10; pl.jail = 1; s.again = false; s.dbl = 0;
+  s.fx.push({ t:'jail', p:pi });
+  log(s, `${pl.name} masuk penjara.`);
+}
+function liquidate(s, pi) {
+  const pl = s.players[pi];
+  while (pl.money < 0) {
+    const mine = Object.keys(s.own).map(Number).filter(i => s.own[i].o === pi);
+    if (!mine.length) break;
+    const built = mine.filter(i => s.own[i].lv > 0).sort((a, b) => s.own[b].lv - s.own[a].lv || b - a);
+    if (built.length) {
+      const i = built[0], back = Math.floor(stepCost(i, s.own[i].lv - 1, s.own[i].lv) / 2);
+      s.own[i].lv--; pl.money += back;
+      s.fx.push({ t:'sell', tile:i });
+      log(s, `${pl.name} menjual bangunan di ${T[i].n} (+${fmt(back)}).`);
+    } else {
+      const i = mine.sort((a, b) => T[a].p - T[b].p)[0], back = Math.floor(T[i].p / 2);
+      delete s.own[i]; pl.money += back;
+      s.fx.push({ t:'sell', tile:i });
+      log(s, `${pl.name} menjual ${T[i].n} ke bank (+${fmt(back)}).`);
+    }
+  }
+}
+// to: indeks pemain, -1 bank, -2 kas Bebas Parkir
+function pay(s, from, to, amt, why) {
+  if (amt <= 0) return;
+  const pl = s.players[from];
+  pl.money -= amt;
+  liquidate(s, from);
+  let paid = amt;
+  if (pl.money < 0) { paid = amt + pl.money; pl.money = 0; pl.out = true; }
+  if (to >= 0) s.players[to].money += paid; else if (to === -2) s.pot += paid;
+  s.fx.push({ t:'pay', from, to, amt:paid, why });
+  if (pl.out) {
+    for (const k in s.own) if (s.own[k].o === from) delete s.own[k];
+    s.winner = other(from); s.phase = 'over'; s.endWhy = `${pl.name} bangkrut.`;
+    log(s, `${pl.name} bangkrut! ${s.players[s.winner].name} menang.`);
+    s.fx.push({ t:'over' });
+  }
+}
+function drawCard(s, pi, k, depth) {
+  const deck = k === 'ch' ? CH : CC, key = k + 'I';
+  const card = deck[s.deck[k][s.deck[key] % deck.length]];
+  s.deck[key]++;
+  const pl = s.players[pi];
+  s.fx.push({ t:'card', k, text:card.t });
+  log(s, `${pl.name} mengambil kartu ${k === 'ch' ? 'Kesempatan' : 'Dana Umum'}: ${card.t}`);
+  const [a, x, y] = card.a;
+  switch (a) {
+    case 'to': moveBy(s, pi, (x - pl.pos + 40) % 40); if (depth < 2) resolve(s, pi, depth + 1); break;
+    case 'back': moveBy(s, pi, -x); if (depth < 2) resolve(s, pi, depth + 1); break;
+    case 'pay': pay(s, pi, -2, x, 'Kartu ' + (k === 'ch' ? 'Kesempatan' : 'Dana Umum')); break;
+    case 'get': pl.money += x; s.fx.push({ t:'gain', p:pi, amt:x, why:'Kartu ' + (k === 'ch' ? 'Kesempatan' : 'Dana Umum') }); break;
+    case 'jail': sendJail(s, pi); break;
+    case 'free': pl.free++; s.fx.push({ t:'msg', text:'Kartu Bebas Penjara disimpan.' }); break;
+    case 'repair': {
+      let h = 0, ho = 0;
+      for (const j in s.own) { const o = s.own[j]; if (o.o === pi) { if (o.lv === LANDMARK_LV) ho++; else h += o.lv; } }
+      const amt = h * x + ho * y;
+      if (amt > 0) pay(s, pi, -2, amt, 'Biaya renovasi');
+      else s.fx.push({ t:'msg', text:'Belum punya bangunan, jadi gratis.' });
+      break;
+    }
+    case 'payOther': pay(s, pi, other(pi), x, 'Traktiran'); break;
+    case 'fromOther': pay(s, other(pi), pi, x, 'Kado ulang tahun'); break;
+  }
+}
+function resolve(s, pi, depth = 0) {
+  if (s.phase === 'over') return;
+  const pl = s.players[pi], i = pl.pos, t = T[i];
+  switch (t.k) {
+    case 'city': case 'rail': case 'util': {
+      const o = s.own[i];
+      if (!o) {
+        if (pl.money >= t.p) { s.phase = 'buy'; s.pending = i; }
+        else { s.fx.push({ t:'msg', text:`Uang belum cukup untuk membeli ${t.n}.` }); log(s, `${pl.name} belum cukup uang untuk ${t.n}.`); }
+      } else if (o.o === pi) {
+        if (t.k === 'city' && o.lv < LANDMARK_LV && pl.money >= stepCost(i, o.lv, o.lv + 1)) { s.phase = 'build'; s.pending = i; }
+      } else {
+        const r = rentOf(s, i);
+        log(s, `${pl.name} bayar sewa ${t.n} ${fmt(r)} ke ${s.players[o.o].name}.`);
+        pay(s, pi, o.o, r, `Sewa ${t.n}`);
+      }
+      break;
+    }
+    case 'tax': log(s, `${pl.name} bayar ${t.n} ${fmt(t.amt)}.`); pay(s, pi, -2, t.amt, t.n); break;
+    case 'park':
+      if (s.pot > 0) {
+        const a = s.pot; s.pot = 0; pl.money += a;
+        s.fx.push({ t:'gain', p:pi, amt:a, why:'Kas Bebas Parkir', fromPot:true });
+        log(s, `${pl.name} dapat kas Bebas Parkir ${fmt(a)}!`);
+      } else s.fx.push({ t:'msg', text:'Bebas Parkir. Kasnya masih kosong.' });
+      break;
+    case 'gojail': sendJail(s, pi); break;
+    case 'ch': case 'cc': drawCard(s, pi, t.k, depth); break;
+  }
+}
+function endTurn(s) {
+  if (s.phase === 'over') return s;
+  s.pending = null;
+  const pl = s.players[s.turn];
+  if (s.again && pl.jail === 0) {
+    s.again = false; s.phase = 'roll';
+    s.fx.push({ t:'msg', text:`Dadu kembar! ${pl.name} main lagi.` });
+    return s;
+  }
+  s.again = false; s.dbl = 0;
+  s.turn = other(s.turn);
+  s.phase = s.players[s.turn].jail > 0 ? 'jail' : 'roll';
+  return s;
+}
+const finish = s => (s.phase === 'buy' || s.phase === 'build' || s.phase === 'over') ? s : endTurn(s);
+
+function actRoll(s0, pref, p) {
+  const s = begin(s0), pi = s.turn, pl = s.players[pi];
+  const r = rollDice(pref, p), [a, b] = r.d, sum = a + b;
+  s.lastDice = sum;
+  s.fx.push({ t:'dice', d:r.d, target:Math.round(r.target), pref, p:pi, g:p });
+  if (s.phase === 'jail') {
+    if (a === b) {
+      pl.jail = 0; s.phase = 'roll';
+      s.fx.push({ t:'msg', text:'Dadu kembar! Bebas dari penjara.' });
+      log(s, `${pl.name} dapat kembar dan bebas dari penjara.`);
+      moveBy(s, pi, sum); resolve(s, pi); return finish(s);
+    }
+    pl.jail++;
+    if (pl.jail > 3) {
+      pl.jail = 0; s.phase = 'roll';
+      log(s, `${pl.name} gagal 3 kali, bayar denda lalu keluar.`);
+      pay(s, pi, -2, JAIL_FINE, 'Denda penjara');
+      if (s.phase === 'over') return s;
+      moveBy(s, pi, sum); resolve(s, pi); return finish(s);
+    }
+    s.fx.push({ t:'msg', text:`Belum kembar. Tetap di penjara (${pl.jail - 1}/3).` });
+    s.phase = 'roll';
+    return endTurn(s);
+  }
+  s.again = false;
+  if (a === b) {
+    s.dbl++;
+    if (s.dbl >= 3) {
+      s.fx.push({ t:'msg', text:'Kembar 3 kali! Langsung masuk penjara.' });
+      log(s, `${pl.name} kembar 3 kali berturut-turut.`);
+      sendJail(s, pi); return endTurn(s);
+    }
+    s.again = true;
+  }
+  moveBy(s, pi, sum); resolve(s, pi);
+  if (pl.jail > 0) s.again = false;
+  return finish(s);
+}
+function logBuild(s, pl, i, lv) {
+  log(s, lv === LANDMARK_LV ? `${pl.name} mendirikan landmark ${LANDMARKS[i][0]} di ${T[i].n}!` : `${pl.name} membangun ${T[i].n} sampai ${LEVEL_NAMES[lv].toLowerCase()}.`);
+}
+// lv: tingkat bangunan yang langsung dibangun saat membeli (0-3, hanya untuk kota)
+function actBuy(s0, yes, lv = 0) {
+  const s = begin(s0), i = s.pending, pi = s.turn, pl = s.players[pi], t = T[i];
+  lv = t.k === 'city' ? Math.max(0, Math.min(MAX_BLD, lv | 0)) : 0;
+  const bc = lv ? stepCost(i, 0, lv) : 0;
+  if (yes && !s.own[i] && pl.money >= t.p + bc) {
+    pl.money -= t.p + bc; s.own[i] = { o:pi, lv };
+    s.fx.push({ t:'buy', p:pi, tile:i, amt:t.p });
+    log(s, `${pl.name} membeli ${t.n} seharga ${fmt(t.p)}.`);
+    if (lv) { s.fx.push({ t:'build', p:pi, tile:i, lv, amt:bc }); logBuild(s, pl, i, lv); }
+  } else log(s, `${pl.name} melewatkan ${t.n}.`);
+  s.phase = 'roll';
+  return endTurn(s);
+}
+// target: tingkat tujuan. Dari tingkat <3 boleh langsung ke 1-3; dari tingkat 3 hanya ke landmark.
+function actBuild(s0, yes, target) {
+  const s = begin(s0), i = s.pending, pi = s.turn, pl = s.players[pi], o = s.own[i];
+  if (yes && o && o.o === pi) {
+    const ok = o.lv < MAX_BLD ? (target > o.lv && target <= MAX_BLD) : (o.lv === MAX_BLD && target === LANDMARK_LV);
+    const c = ok ? stepCost(i, o.lv, target) : 0;
+    if (ok && pl.money >= c) {
+      pl.money -= c; o.lv = target;
+      s.fx.push({ t:'build', p:pi, tile:i, lv:target, amt:c });
+      logBuild(s, pl, i, target);
+    }
+  }
+  s.phase = 'roll';
+  return endTurn(s);
+}
+function actJailPay(s0) {
+  const s = begin(s0), pi = s.turn, pl = s.players[pi];
+  log(s, `${pl.name} bayar denda ${fmt(JAIL_FINE)} dan keluar penjara.`);
+  pay(s, pi, -2, JAIL_FINE, 'Denda penjara');
+  if (s.phase === 'over') return s;
+  pl.jail = 0; s.phase = 'roll';
+  return s;
+}
+function actJailCard(s0) {
+  const s = begin(s0), pl = s.players[s.turn];
+  if (pl.free > 0) { pl.free--; pl.jail = 0; s.phase = 'roll'; s.fx.push({ t:'msg', text:'Kartu Bebas Penjara dipakai!' }); log(s, `${pl.name} memakai Kartu Bebas Penjara.`); }
+  return s;
+}
+function actEndGame(s0) {
+  const s = begin(s0), w0 = worth(s, 0), w1 = worth(s, 1);
+  s.winner = w0 === w1 ? -1 : (w0 > w1 ? 0 : 1);
+  s.phase = 'over'; s.endWhy = 'Permainan diakhiri, dihitung dari total kekayaan.';
+  s.fx.push({ t:'over' });
+  log(s, 'Permainan diakhiri.');
+  return s;
+}
+
+/* =========================================================
+   UTIL & SUARA
+   ========================================================= */
+const $ = sel => document.querySelector(sel);
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const lsDel = k => { try { localStorage.removeItem(k); } catch (e) {} };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let soundOn = lsGet('mn_sound') !== '0';
+let AC = null;
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return AC; }
+function tone(f, d = .1, type = 'sine', vol = .12, when = 0) {
+  if (!soundOn) return; const a = ac(); if (!a) return;
+  const t0 = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + d + .02);
+}
+function noise(d = .05, vol = .2, when = 0, freq = 1800) {
+  if (!soundOn) return; const a = ac(); if (!a) return;
+  const n = Math.floor(a.sampleRate * d), buf = a.createBuffer(1, n, a.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
+  src.buffer = buf; src.connect(f).connect(g).connect(a.destination); src.start(a.currentTime + when);
+}
+const sfx = {
+  dice: () => { for (let i = 0; i < 5; i++) noise(.04, .25, i * .13 + Math.random() * .05, 1400 + Math.random() * 900); },
+  hop: () => tone(480 + Math.random() * 120, .08, 'triangle', .07),
+  coin: () => { tone(988, .08, 'square', .045); tone(1319, .22, 'square', .045, .08); },
+  build: () => { noise(.12, .35, 0, 300); tone(196, .2, 'triangle', .1); },
+  card: () => { noise(.1, .12, 0, 3000); tone(660, .12, 'sine', .07, .1); },
+  bad: () => { tone(220, .22, 'sawtooth', .05); tone(165, .3, 'sawtooth', .05, .15); },
+  win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .25, 'triangle', .1, i * .12)),
+  tick: () => tone(1200, .03, 'square', .02),
+  whoosh: () => {
+    if (!soundOn) return; const a = ac(); if (!a) return;
+    const o = a.createOscillator(), g = a.createGain(), t0 = a.currentTime;
+    o.type = 'triangle'; o.frequency.setValueAtTime(220, t0); o.frequency.exponentialRampToValueAtTime(980, t0 + .5);
+    g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.09, t0 + .25); g.gain.exponentialRampToValueAtTime(.0001, t0 + .6);
+    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + .62);
+    noise(.45, .08, .05, 2400);
+  },
+};
+
+/* =========================================================
+   3D: SCENE, PAPAN, PION, DADU
+   ========================================================= */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1b120c');
+scene.fog = new THREE.Fog('#1b120c', 45, 120);
+const camera = new THREE.PerspectiveCamera(36, 1, .1, 200);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = .08;
+controls.enablePan = false; controls.minDistance = 6; controls.maxDistance = 75;
+controls.maxPolarAngle = 1.22; controls.minPolarAngle = .12;
+const camGoal = new THREE.Vector3();
+let follow = null;                       // posisi yang sedang diikuti kamera (null = lihat seluruh papan)
+const followWant = new THREE.Vector3();
+
+scene.add(new THREE.HemisphereLight(0xfff1dd, 0x3a2a1a, .55));
+const sun = new THREE.DirectionalLight(0xffe6c0, 1.05);
+sun.position.set(6, 15, 8); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-9, right:9, top:9, bottom:-9, near:1, far:40 });
+sun.shadow.bias = -.0005;
+scene.add(sun);
+const lamp = new THREE.PointLight(0xffb36b, .35, 30); lamp.position.set(-8, 6, -6); scene.add(lamp);
+
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+function canvasTex(cv, repeat) {
+  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = maxAniso;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); }
+  return t;
+}
+// Meja kayu jati
+(() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 512; const x = cv.getContext('2d');
+  x.fillStyle = '#3a2416'; x.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 220; i++) {
+    const y = Math.random() * 512;
+    x.strokeStyle = `rgba(${Math.random() < .5 ? '20,10,5' : '90,55,30'},${.08 + Math.random() * .15})`;
+    x.lineWidth = .5 + Math.random() * 2.5;
+    x.beginPath(); x.moveTo(0, y);
+    for (let X = 0; X <= 512; X += 32) x.lineTo(X, y + Math.sin(X / 60 + i) * 3);
+    x.stroke();
+  }
+  const table = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshStandardMaterial({ map:canvasTex(cv, 7), roughness:.75 }));
+  table.rotation.x = -Math.PI / 2; table.position.y = -.42; table.receiveShadow = true; scene.add(table);
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(S + .5, .3, S + .5), new THREE.MeshStandardMaterial({ color:'#5a3520', roughness:.55 }));
+  frame.position.y = -.27; frame.castShadow = frame.receiveShadow = true; scene.add(frame);
+})();
+
+// ---- Tekstur papan (kanvas 2048) ----
+const CS = 2048, PX = CS / S;
+const bcv = document.createElement('canvas'); bcv.width = bcv.height = CS;
+const bx = bcv.getContext('2d');
+const boardTex = canvasTex(bcv);
+const FD = "'Alfa Slab One', Rockwell, Georgia, serif", FB = "'Plus Jakarta Sans', 'Segoe UI', sans-serif";
+const INK = '#2a1d12', PAPER = '#f5ecd3';
+
+function fitLines(x, text, maxW, size, weight, font) {
+  let s = size, lines;
+  for (;;) {
+    x.font = `${weight} ${s}px ${font}`;
+    const words = text.split(' ');
+    if (words.some(w => x.measureText(w).width > maxW) && s > 12) { s -= 1; continue; }
+    lines = []; let cur = '';
+    for (const w of words) { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+    lines.push(cur);
+    if (lines.length > 3 && s > 12) { s -= 1; continue; }
+    return { lines, size:s };
+  }
+}
+function textBlock(x, text, cx, y, maxW, size, weight = 800, font = FB, color = INK) {
+  const r = fitLines(x, text, maxW, size, weight, font);
+  x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  r.lines.forEach((l, k) => x.fillText(l, cx, y + k * r.size * 1.1));
+  return y + (r.lines.length - 1) * r.size * 1.1;
+}
+function rr(x, X, Y, w, h, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); }
+
+const ICONS = {
+  train(x, cx, cy) {
+    x.fillStyle = '#2a1d12'; rr(x, cx - 30, cy - 34, 60, 58, 12); x.fill();
+    x.fillStyle = '#8fd3f0'; x.fillRect(cx - 21, cy - 25, 42, 20);
+    x.fillStyle = '#f2cf1d'; x.beginPath(); x.arc(cx - 15, cy + 10, 5, 0, 7); x.arc(cx + 15, cy + 10, 5, 0, 7); x.fill();
+    x.strokeStyle = '#2a1d12'; x.lineWidth = 5; x.beginPath(); x.moveTo(cx - 22, cy + 26); x.lineTo(cx - 32, cy + 40); x.moveTo(cx + 22, cy + 26); x.lineTo(cx + 32, cy + 40); x.stroke();
+  },
+  ship(x, cx, cy) {
+    x.fillStyle = '#2a1d12'; x.beginPath(); x.moveTo(cx - 44, cy + 2); x.lineTo(cx + 44, cy + 2); x.lineTo(cx + 30, cy + 26); x.lineTo(cx - 32, cy + 26); x.closePath(); x.fill();
+    x.fillStyle = '#d8322c'; x.fillRect(cx - 22, cy - 22, 36, 24); x.fillStyle = '#2a1d12'; x.fillRect(cx - 4, cy - 40, 12, 20);
+    x.strokeStyle = '#2453b3'; x.lineWidth = 4; x.beginPath();
+    for (let i = -48; i <= 48; i += 16) { x.moveTo(cx + i, cy + 36); x.quadraticCurveTo(cx + i + 8, cy + 30, cx + i + 16, cy + 36); } x.stroke();
+  },
+  plane(x, cx, cy) {
+    x.save(); x.translate(cx, cy); x.rotate(-Math.PI / 4); x.fillStyle = '#2a1d12';
+    rr(x, -8, -46, 16, 92, 8); x.fill();
+    x.beginPath(); x.moveTo(-6, -8); x.lineTo(-44, 10); x.lineTo(-44, 18); x.lineTo(-6, 10); x.moveTo(6, -8); x.lineTo(44, 10); x.lineTo(44, 18); x.lineTo(6, 10); x.fill();
+    x.beginPath(); x.moveTo(-4, 30); x.lineTo(-20, 42); x.lineTo(-20, 46); x.lineTo(20, 46); x.lineTo(20, 42); x.lineTo(4, 30); x.fill();
+    x.restore();
+  },
+  bulb(x, cx, cy) {
+    x.fillStyle = '#f2cf1d'; x.strokeStyle = '#2a1d12'; x.lineWidth = 5;
+    x.beginPath(); x.arc(cx, cy - 8, 28, 0, Math.PI * 2); x.fill(); x.stroke();
+    x.fillStyle = '#2a1d12'; x.fillRect(cx - 14, cy + 18, 28, 8); x.fillRect(cx - 11, cy + 29, 22, 7);
+    x.lineWidth = 4; x.beginPath(); x.moveTo(cx - 8, cy - 6); x.lineTo(cx - 3, cy + 4); x.lineTo(cx + 3, cy - 4); x.lineTo(cx + 8, cy + 6); x.stroke();
+  },
+  drop(x, cx, cy) {
+    x.fillStyle = '#3c8fe0'; x.strokeStyle = '#2a1d12'; x.lineWidth = 5;
+    x.beginPath(); x.moveTo(cx, cy - 42); x.bezierCurveTo(cx + 12, cy - 18, cx + 32, cy, cx + 30, cy + 14); x.arc(cx, cy + 14, 30, 0, Math.PI); x.bezierCurveTo(cx - 32, cy, cx - 12, cy - 18, cx, cy - 42); x.fill(); x.stroke();
+    x.fillStyle = '#fff9'; x.beginPath(); x.arc(cx - 11, cy + 12, 7, 0, 7); x.fill();
+  },
+  coin(x, cx, cy) {
+    for (let k = 0; k < 3; k++) { x.fillStyle = '#e6a93a'; x.strokeStyle = '#2a1d12'; x.lineWidth = 4; x.beginPath(); x.ellipse(cx, cy + 20 - k * 14, 32, 12, 0, 0, 7); x.fill(); x.stroke(); }
+    x.fillStyle = '#2a1d12'; x.font = `28px ${FD}`; x.textAlign = 'center'; x.fillText('Rp', cx, cy - 18);
+  },
+  ring(x, cx, cy) {
+    x.strokeStyle = '#e6a93a'; x.lineWidth = 9; x.beginPath(); x.arc(cx, cy + 12, 24, 0, 7); x.stroke();
+    x.fillStyle = '#8fd3f0'; x.strokeStyle = '#2a1d12'; x.lineWidth = 4;
+    x.beginPath(); x.moveTo(cx, cy - 8); x.lineTo(cx - 18, cy - 26); x.lineTo(cx - 10, cy - 38); x.lineTo(cx + 10, cy - 38); x.lineTo(cx + 18, cy - 26); x.closePath(); x.fill(); x.stroke();
+  },
+  chest(x, cx, cy) {
+    x.strokeStyle = '#2a1d12'; x.lineWidth = 5; x.fillStyle = '#2563b8';
+    rr(x, cx - 40, cy - 10, 80, 46, 6); x.fill(); x.stroke();
+    x.beginPath(); x.moveTo(cx - 40, cy - 10); x.quadraticCurveTo(cx, cy - 52, cx + 40, cy - 10); x.closePath(); x.fill(); x.stroke();
+    x.fillStyle = '#e6a93a'; x.fillRect(cx - 9, cy - 12, 18, 22); x.strokeRect(cx - 9, cy - 12, 18, 22);
+  },
+};
+
+function drawTile(x, i, X, Y, w, h) {
+  const t = T[i], cx = X + w / 2;
+  x.fillStyle = PAPER; x.fillRect(X, Y, w, h);
+  x.strokeStyle = INK; x.lineWidth = 3; x.strokeRect(X, Y, w, h);
+  if (t.k === 'city') {
+    const bh = h * .22, g = GROUPS[t.g];
+    x.fillStyle = g.c; x.fillRect(X, Y, w, bh); x.strokeRect(X, Y, w, bh);
+    x.fillStyle = '#ffffff40'; x.fillRect(X + 3, Y + 3, w - 6, 8);
+    const end = textBlock(x, t.n.toUpperCase(), cx, Y + bh + 36, w - 18, 25, 800);
+    textBlock(x, t.r, cx, end + 26, w - 18, 15, 600, FB, '#6a5640');
+    x.font = `22px ${FD}`; x.fillStyle = INK; x.textAlign = 'center'; x.fillText(fmt(t.p), cx, Y + h - 20);
+  } else if (t.k === 'ch' || t.k === 'cc') {
+    const ch = t.k === 'ch';
+    textBlock(x, ch ? 'KESEMPATAN' : 'DANA UMUM', cx, Y + 36, w - 14, 19, 800);
+    if (ch) { x.font = `128px ${FD}`; x.fillStyle = '#e07a14'; x.textAlign = 'center'; x.fillText('?', cx, Y + h - 46); x.strokeStyle = INK; x.lineWidth = 3; x.strokeText('?', cx, Y + h - 46); }
+    else ICONS.chest(x, cx, Y + h * .6);
+  } else if (t.k === 'tax') {
+    textBlock(x, t.n.toUpperCase(), cx, Y + 34, w - 16, 20, 800);
+    ICONS[t.ic](x, cx, Y + h * .55);
+    x.font = `800 18px ${FB}`; x.fillStyle = INK; x.textAlign = 'center'; x.fillText('Bayar ' + fmt(t.amt), cx, Y + h - 20);
+  } else if (t.k === 'rail' || t.k === 'util') {
+    textBlock(x, t.n.toUpperCase(), cx, Y + 34, w - 16, 19, 800);
+    ICONS[t.ic](x, cx, Y + h * .56);
+    x.font = `22px ${FD}`; x.fillStyle = INK; x.textAlign = 'center'; x.fillText(fmt(t.p), cx, Y + h - 20);
+  }
+}
+function drawCorner(x, i, X, Y, s) {
+  x.fillStyle = PAPER; x.fillRect(X, Y, s, s);
+  x.strokeStyle = INK; x.lineWidth = 3; x.strokeRect(X, Y, s, s);
+  const cx = X + s / 2, cy = Y + s / 2, t = T[i];
+  x.save(); x.textAlign = 'center';
+  if (t.k === 'go') {
+    x.translate(cx, cy); x.rotate(-Math.PI / 4);
+    x.fillStyle = INK; x.font = `800 19px ${FB}`; x.fillText('TERIMA GAJI ' + fmt(SALARY), 0, -58);
+    x.font = `96px ${FD}`; x.fillStyle = '#c8302a'; x.fillText('START', 0, 30); x.lineWidth = 3; x.strokeStyle = INK; x.strokeText('START', 0, 30);
+    x.restore(); x.save();
+    x.fillStyle = '#c8302a'; x.beginPath();
+    const ay = Y + s - 48; x.moveTo(X + 34, ay); x.lineTo(X + 92, ay - 32); x.lineTo(X + 92, ay - 12); x.lineTo(X + s - 40, ay - 12); x.lineTo(X + s - 40, ay + 12); x.lineTo(X + 92, ay + 12); x.lineTo(X + 92, ay + 32); x.closePath(); x.fill();
+  } else if (t.k === 'jail') {
+    const b = s * .68;
+    x.fillStyle = '#f08a24'; x.fillRect(X, Y, b, b); x.strokeRect(X, Y, b, b);
+    x.fillStyle = '#fff6e0'; x.fillRect(X + b * .2, Y + b * .2, b * .6, b * .6);
+    x.strokeStyle = INK; x.lineWidth = 6;
+    for (let k = 1; k <= 4; k++) { const xx = X + b * .2 + k * b * .12; x.beginPath(); x.moveTo(xx, Y + b * .2); x.lineTo(xx, Y + b * .8); x.stroke(); }
+    x.lineWidth = 3; x.strokeRect(X + b * .2, Y + b * .2, b * .6, b * .6);
+    x.save(); x.translate(X + b / 2, Y + b / 2); x.rotate(-Math.PI / 4); x.fillStyle = INK; x.font = `30px ${FD}`; x.fillText('PENJARA', 0, b * .48); x.restore();
+    x.fillStyle = INK; x.font = `800 24px ${FB}`; x.fillText('BERKUNJUNG', X + s / 2 - 10, Y + s - 26);
+    x.save(); x.translate(X + s - 30, Y + s * .36); x.rotate(-Math.PI / 2); x.fillText('HANYA', 0, 8); x.restore();
+  } else if (t.k === 'park') {
+    x.translate(cx, cy); x.rotate(-Math.PI / 4);
+    x.fillStyle = '#c8302a'; x.font = `38px ${FD}`; x.fillText('BEBAS', 0, -62);
+    // mobil klasik
+    x.fillStyle = '#2453b3'; rr(x, -66, -18, 132, 40, 12); x.fill(); rr(x, -36, -48, 70, 36, 12); x.fill();
+    x.fillStyle = '#8fd3f0'; x.fillRect(-26, -40, 24, 20); x.fillRect(4, -40, 24, 20);
+    x.fillStyle = INK; x.beginPath(); x.arc(-38, 24, 15, 0, 7); x.arc(38, 24, 15, 0, 7); x.fill();
+    x.fillStyle = '#c8302a'; x.font = `38px ${FD}`; x.fillText('PARKIR', 0, 86);
+  } else if (t.k === 'gojail') {
+    x.translate(cx, cy); x.rotate(-Math.PI / 4);
+    x.fillStyle = INK; x.font = `34px ${FD}`; x.fillText('MASUK', 0, -58);
+    // borgol
+    x.strokeStyle = '#7a7f87'; x.lineWidth = 10;
+    x.beginPath(); x.arc(-30, 4, 24, 0, 7); x.stroke(); x.beginPath(); x.arc(30, 4, 24, 0, 7); x.stroke();
+    x.lineWidth = 6; x.beginPath(); x.moveTo(-6, 4); x.lineTo(6, 4); x.stroke();
+    x.fillStyle = INK; x.font = `34px ${FD}`; x.fillText('PENJARA', 0, 78);
+  }
+  x.restore();
+}
+function drawCenter(x) {
+  const a = C * PX, b = (S - C) * PX, m = (a + b) / 2, span = b - a;
+  x.fillStyle = '#cfe5cf'; x.fillRect(a, a, span, span);
+  // motif kawung samar
+  x.save(); x.beginPath(); x.rect(a, a, span, span); x.clip();
+  x.fillStyle = 'rgba(31,110,70,.09)';
+  const step = 92;
+  for (let yy = a; yy < b + step; yy += step) for (let xx = a; xx < b + step; xx += step) {
+    for (let r = 0; r < 4; r++) { x.save(); x.translate(xx, yy); x.rotate(r * Math.PI / 2 + Math.PI / 4); x.beginPath(); x.ellipse(0, -24, 14, 24, 0, 0, 7); x.fill(); x.restore(); }
+  }
+  x.restore();
+  // tempat kartu
+  const card = (dx, dy, label, col, fn) => {
+    x.save(); x.translate(m + dx, m + dy); x.rotate(-Math.PI / 4);
+    x.fillStyle = '#ffffffaa'; rr(x, -150, -95, 300, 190, 16); x.fill();
+    x.setLineDash([14, 10]); x.strokeStyle = col; x.lineWidth = 5; rr(x, -150, -95, 300, 190, 16); x.stroke(); x.setLineDash([]);
+    fn(); x.fillStyle = col; x.font = `30px ${FD}`; x.textAlign = 'center'; x.fillText(label, 0, 72);
+    x.restore();
+  };
+  card(-span * .24, -span * .24, 'KESEMPATAN', '#e07a14', () => { x.font = `110px ${FD}`; x.fillStyle = '#e07a14'; x.textAlign = 'center'; x.fillText('?', 0, 30); });
+  card(span * .24, span * .24, 'DANA UMUM', '#2563b8', () => ICONS.chest(x, 0, -6));
+  // pita logo
+  x.save(); x.translate(m, m); x.rotate(-Math.PI / 4);
+  x.fillStyle = '#00000030'; rr(x, -440, -100, 880, 190, 22); x.fill();
+  x.fillStyle = '#c8302a'; rr(x, -450, -112, 880, 190, 22); x.fill();
+  x.strokeStyle = '#fff'; x.lineWidth = 10; rr(x, -436, -98, 852, 162, 16); x.stroke();
+  x.font = `150px ${FD}`; x.textAlign = 'center'; x.fillStyle = '#7a1612'; x.fillText('MONOPOLI', -6, 50);
+  x.fillStyle = '#fff'; x.fillText('MONOPOLI', -12, 44);
+  x.fillStyle = PAPER; rr(x, -240, 92, 460, 74, 10); x.fill(); x.strokeStyle = INK; x.lineWidth = 5; x.stroke();
+  x.fillStyle = INK; x.font = `48px ${FD}`; x.fillText('N U S A N T A R A', -10, 146);
+  x.font = `700 22px ${FB}`; x.fillStyle = '#1f6e46'; x.fillText('EDISI NOSTALGIA · DARI SABANG SAMPAI MERAUKE', -10, 210);
+  x.restore();
+}
+function drawBoard() {
+  bx.setTransform(1, 0, 0, 1, 0, 0);
+  bx.fillStyle = PAPER; bx.fillRect(0, 0, CS, CS);
+  drawCenter(bx);
+  for (let s = 0; s < 4; s++) {
+    bx.save(); bx.translate(CS / 2, CS / 2); bx.rotate(s * Math.PI / 2); bx.translate(-CS / 2, -CS / 2);
+    drawCorner(bx, s * 10, (S - C) * PX, (S - C) * PX, C * PX);
+    for (let k = 1; k <= 9; k++) drawTile(bx, s * 10 + k, (S - C - k * W) * PX, (S - C) * PX, W * PX, C * PX);
+    bx.restore();
+  }
+  bx.strokeStyle = INK; bx.lineWidth = 8; bx.strokeRect(4, 4, CS - 8, CS - 8);
+  bx.lineWidth = 5; bx.strokeRect(C * PX, C * PX, (S - 2 * C) * PX, (S - 2 * C) * PX);
+  boardTex.needsUpdate = true;
+}
+drawBoard();
+Promise.all([document.fonts.load(`40px ${FD}`), document.fonts.load(`800 20px ${FB}`), document.fonts.load(`600 20px ${FB}`)])
+  .then(drawBoard).catch(() => {});
+
+const sideMat = new THREE.MeshStandardMaterial({ color:'#e9dcb6', roughness:.6 });
+const board = new THREE.Mesh(new THREE.BoxGeometry(S, .35, S),
+  [sideMat, sideMat, new THREE.MeshStandardMaterial({ map:boardTex, roughness:.62 }), sideMat, sideMat, sideMat]);
+board.position.y = -.175; board.receiveShadow = true; board.castShadow = true;
+scene.add(board);
+
+// ---- Koordinat petak ----
+function rot(x, z, s) { const th = s * Math.PI / 2, c = Math.cos(th), n = Math.sin(th); return [x * c - z * n, x * n + z * c]; }
+function tileLocal(i) { const k = i % 10; return k === 0 ? { x:S / 2 - C / 2, z:S / 2 - C / 2 } : { x:S / 2 - C - (k - .5) * W, z:S / 2 - C / 2 }; }
+function pawnSpot(i, pi, inJail) {
+  const s = Math.floor(i / 10), k = i % 10, L = tileLocal(i);
+  let lx = L.x, lz = L.z;
+  if (k === 0) {
+    if (i === 10 && inJail) { lx += pi ? -.15 : -.5; lz += pi ? -.5 : -.15; }
+    else { lx += pi ? .32 : -.28; lz += pi ? -.28 : .32; if (i === 10) { lx = L.x + (pi ? .55 : .1); lz = L.z + (pi ? .1 : .55); } }
+  } else { lx += pi ? .2 : -.2; lz += .22; }
+  const [x, z] = rot(lx, lz, s);
+  return new THREE.Vector3(x, 0, z);
+}
+
+// ---- Pion ----
+// tekstur cahaya: gradasi vertikal untuk pilar, gradasi bulat untuk pendar
+const BEAM_TEX = (() => {
+  const cv = document.createElement('canvas'); cv.width = 4; cv.height = 128; const x = cv.getContext('2d');
+  const gr = x.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, '#000'); gr.addColorStop(.55, '#444'); gr.addColorStop(1, '#fff');
+  x.fillStyle = gr; x.fillRect(0, 0, 4, 128); return new THREE.CanvasTexture(cv);
+})();
+const GLOW_TEX = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, '#fff'); gr.addColorStop(.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(cv);
+})();
+function makePawn(hex) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:hex, roughness:.28, metalness:.25 });
+  const pts = [[0,0],[.25,0],[.26,.04],[.2,.08],[.13,.14],[.095,.3],[.085,.42],[.15,.46],[.15,.49],[.07,.53]].map(([a, b]) => new THREE.Vector2(a, b));
+  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 32), mat);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.14, 24, 16), mat); head.position.y = .64;
+  [body, head].forEach(m => { m.castShadow = true; g.add(m); });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(.32, .028, 8, 40), new THREE.MeshBasicMaterial({ color:hex, transparent:true, opacity:.9 }));
+  ring.rotation.x = Math.PI / 2; ring.position.y = .02; ring.visible = false; g.add(ring);
+  // aura kuning untuk pion yang sedang giliran: pilar cahaya, pendar bulat, genangan cahaya di lantai, dan lampu kuning
+  const additive = { transparent:true, blending:THREE.AdditiveBlending, depthWrite:false };
+  const aura = new THREE.Group();
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, 3.6, 28, 1, true),
+    new THREE.MeshBasicMaterial(Object.assign({ color:'#ffe04a', alphaMap:BEAM_TEX, side:THREE.DoubleSide }, additive)));
+  beam.position.y = 1.8;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial(Object.assign({ map:GLOW_TEX, color:'#ffd23a' }, additive)));
+  glow.position.y = .45; glow.scale.set(2.6, 2.6, 1);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(.6, 40), new THREE.MeshBasicMaterial(Object.assign({ map:GLOW_TEX, color:'#ffc21a', opacity:.55 }, additive)));
+  pool.rotation.x = -Math.PI / 2; pool.position.y = .015;
+  // panah kuning memantul di atas pion supaya mudah ditemukan dari jauh
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(.22, .4, 4), new THREE.MeshStandardMaterial({ color:'#ffd23a', emissive:'#ffb000', emissiveIntensity:.45, roughness:.3 }));
+  arrow.rotation.x = Math.PI; arrow.position.y = 1.5;
+  aura.add(beam, glow, pool, arrow); aura.visible = false; g.add(aura);
+  const light = new THREE.PointLight(0xffd23a, 0, 4.5); light.position.y = .9; g.add(light);
+  g.userData = { mat, ring, aura, beam, glow, light, arrow };
+  return g;
+}
+const pawns = [makePawn('#e0352d'), makePawn('#2f6fe0')];
+pawns.forEach(p => { p.visible = false; scene.add(p); });
+function setPawnColor(pi, hex) { pawns[pi].userData.mat.color.set(hex); pawns[pi].userData.ring.material.color.set(hex); }
+
+// ---- Dadu ----
+function diceFace(n) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+  x.fillStyle = '#d9cfbd'; x.fillRect(0, 0, 128, 128);
+  x.fillStyle = '#fffdf6'; rr(x, 6, 6, 116, 116, 22); x.fill();
+  const P = { 1:[[64,64]], 2:[[36,36],[92,92]], 3:[[34,34],[64,64],[94,94]], 4:[[36,36],[92,36],[36,92],[92,92]], 5:[[34,34],[94,34],[64,64],[34,94],[94,94]], 6:[[36,30],[92,30],[36,64],[92,64],[36,98],[92,98]] };
+  x.fillStyle = n === 1 ? '#c8302a' : '#2a1d12';
+  P[n].forEach(([a, b]) => { x.beginPath(); x.arc(a, b, n === 1 ? 15 : 11, 0, 7); x.fill(); });
+  return new THREE.MeshStandardMaterial({ map:canvasTex(cv), roughness:.35 });
+}
+const DICE_MATS = [2, 5, 1, 6, 3, 4].map(diceFace); // +x,-x,+y,-y,+z,-z
+const FACE_ROT = { 1:[0,0], 6:[Math.PI,0], 2:[0,Math.PI/2], 5:[0,-Math.PI/2], 3:[-Math.PI/2,0], 4:[Math.PI/2,0] };
+const DS = .56;
+const dice = [0, 1].map(() => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(DS, DS, DS), DICE_MATS);
+  m.castShadow = true; m.rotation.order = 'YXZ'; m.position.set(0, DS / 2, 0); m.visible = false; scene.add(m); return m;
+});
+
+// ---- Penanda kepemilikan & bangunan ----
+const markers = {};
+// Bahan & bentuk dasar untuk menyusun bangunan dari primitif
+const matCache = {};
+const MAT = (c, o) => { const k = c + (o ? JSON.stringify(o) : ''); return matCache[k] || (matCache[k] = new THREE.MeshStandardMaterial(Object.assign({ color:c, roughness:.55 }, o))); };
+function add(g, geo, c, x = 0, y = 0, z = 0, o) {
+  const m = new THREE.Mesh(geo, typeof c === 'string' ? MAT(c, o) : c);
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+}
+// bx3/cy3/co3 menaruh alas benda di ketinggian y (bukan titik tengahnya)
+const bx3 = (g, w, h, d, c, x = 0, y = 0, z = 0, o) => add(g, new THREE.BoxGeometry(w, h, d), c, x, y + h / 2, z, o);
+const cy3 = (g, rt, rb, h, c, x = 0, y = 0, z = 0, seg = 16, o) => add(g, new THREE.CylinderGeometry(rt, rb, h, seg), c, x, y + h / 2, z, o);
+const co3 = (g, r, h, c, x = 0, y = 0, z = 0, seg = 16, o) => add(g, new THREE.ConeGeometry(r, h, seg), c, x, y + h / 2, z, o);
+const sp3 = (g, r, c, x = 0, y = 0, z = 0, o) => add(g, new THREE.SphereGeometry(r, 16, 12), c, x, y, z, o);
+const dome = (g, r, c, x = 0, y = 0, z = 0, o) => add(g, new THREE.SphereGeometry(r, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), c, x, y, z, o);
+// atap pelana: bubungan sejajar sumbu x
+function gable(g, len, w, h, c, x = 0, y = 0, z = 0) {
+  const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(0, h); s.closePath();
+  const geo = new THREE.ExtrudeGeometry(s, { depth:len, bevelEnabled:false });
+  geo.translate(0, 0, -len / 2); geo.rotateY(Math.PI / 2);
+  return add(g, geo, c, x, y, z);
+}
+// atap bergonjong (Rumah Gadang, Tongkonan): kedua ujung melengkung naik seperti tanduk
+function saddle(g, len, w, h, horn, c, x = 0, y = 0, z = 0) {
+  const s = new THREE.Shape();
+  s.moveTo(-len / 2, 0); s.lineTo(len / 2, 0); s.lineTo(len / 2 + horn * .4, h + horn);
+  s.quadraticCurveTo(0, h * .4, -len / 2 - horn * .4, h + horn); s.closePath();
+  const geo = new THREE.ExtrudeGeometry(s, { depth:w, bevelEnabled:true, bevelSize:.01, bevelThickness:.01, bevelSegments:1 });
+  geo.translate(0, 0, -w / 2);
+  return add(g, geo, c, x, y, z);
+}
+function stilts(g, xs, zs, h, c = '#5a3a22') { for (const x of xs) for (const z of zs) cy3(g, .022, .022, h, c, x, 0, z, 6); }
+function windowsRow(g, xs, y, z, w, h, c) { for (const x of xs) bx3(g, w, h, .012, c, x, y, z); }
+
+const LEVEL_NAMES = ['Tanah', 'Rumah', 'Vila', 'Hotel', 'Landmark'];
+const WALL = '#fbf6ea', GLASS = '#3d6f9e', DOOR = '#7a4a2a';
+// Tingkat 1-3 ala Get Rich (rumah, vila, hotel): dinding putih, atap dan aksen warna pemilik, makin tinggi tiap tingkat. Fasad menghadap +z (tepi luar papan).
+function lvBuilding(lv, hex) {
+  const g = new THREE.Group(), own = MAT(hex), ownGlow = MAT(hex, { emissive:hex, emissiveIntensity:.25 });
+  if (lv === 1) {
+    bx3(g, .44, .26, .34, WALL);
+    gable(g, .52, .44, .2, own, 0, .26, 0);
+    bx3(g, .09, .15, .012, DOOR, 0, 0, .176);
+    windowsRow(g, [-.14, .14], .1, .176, .08, .07, GLASS);
+    bx3(g, .05, .1, .05, '#c9c2b2', .14, .38, -.06);
+  } else if (lv === 2) {
+    bx3(g, .6, .46, .4, WALL);
+    gable(g, .66, .46, .2, own, 0, .46, 0);
+    bx3(g, .62, .025, .12, own, 0, .22, .24);
+    for (const x of [-.27, -.09, .09, .27]) cy3(g, .008, .008, .07, WALL, x, .245, .29, 6);
+    windowsRow(g, [-.18, 0, .18], .3, .201, .1, .09, GLASS);
+    windowsRow(g, [-.18, .18], .06, .201, .1, .09, GLASS);
+    bx3(g, .1, .16, .012, DOOR, 0, 0, .201);
+  } else {
+    bx3(g, .52, 1.12, .44, '#eef2f5');
+    for (let k = 0; k < 6; k++) bx3(g, .46, .11, .012, GLASS, 0, .08 + k * .165, .221, { metalness:.4, roughness:.2 });
+    bx3(g, .58, .07, .5, ownGlow, 0, 1.12);
+    bx3(g, .16, .2, .16, own, 0, 1.19);
+    cy3(g, .01, .01, .18, '#d8d2c4', 0, 1.39, 0, 6);
+    bx3(g, .32, .08, .02, ownGlow, 0, .98, .232);
+  }
+  return g;
+}
+
+// Landmark tingkat 5: bangunan khas daerah tiap kota
+const STONE = '#9a948a', WHITE = '#f4efe3', GOLD = '#e6b23a', WOOD = '#7a4a2a', DARK = '#3a2a1e', THATCH = '#9a7444', RED = '#c8302a';
+const goldO = { metalness:.65, roughness:.3, emissive:'#5a3a00', emissiveIntensity:.25 };
+const LANDMARKS = {
+  1:['Honai', g => {
+    for (const [x, z, s] of [[-.2, .1, 1], [.22, .12, .85], [0, -.2, .95]]) {
+      cy3(g, .16 * s, .17 * s, .2 * s, WOOD, x, 0, z, 14);
+      dome(g, .22 * s, THATCH, x, .2 * s, z);
+      bx3(g, .06 * s, .11 * s, .012, DARK, x, 0, z + .165 * s);
+    }
+  }],
+  3:['Tugu Sabang-Merauke', g => {
+    bx3(g, .52, .08, .52, STONE); bx3(g, .34, .1, .34, WHITE, 0, .08);
+    add(g, new THREE.CylinderGeometry(.045, .11, .9, 4), WHITE, 0, .63, 0).rotation.y = Math.PI / 4;
+    co3(g, .065, .14, RED, 0, 1.08, 0, 4);
+    bx3(g, .22, .05, .012, RED, 0, .11, .172);
+  }],
+  6:['Gong Perdamaian', g => {
+    bx3(g, .74, .1, .42, STONE);
+    bx3(g, .07, .82, .09, RED, -.32, .1); bx3(g, .07, .82, .09, RED, .32, .1); bx3(g, .78, .08, .12, RED, 0, .9);
+    const gong = add(g, new THREE.CylinderGeometry(.27, .27, .06, 32), GOLD, 0, .52, 0, goldO); gong.rotation.x = Math.PI / 2;
+    sp3(g, .075, '#c9962a', 0, .52, .04, goldO);
+    add(g, new THREE.TorusGeometry(.2, .012, 6, 32), '#b8862a', 0, .52, .035, goldO);
+  }],
+  8:['Kedaton Ternate', g => {
+    bx3(g, .76, .06, .6, STONE); bx3(g, .6, .3, .44, WHITE, 0, .06);
+    bx3(g, .24, .04, .12, STONE, 0, 0, .3);
+    windowsRow(g, [-.2, 0, .2], .14, .221, .07, .12, '#2f7a4a');
+    add(g, new THREE.ConeGeometry(.5, .22, 4), '#2f7a4a', 0, .47, 0).rotation.y = Math.PI / 4;
+    add(g, new THREE.ConeGeometry(.27, .2, 4), '#2f7a4a', 0, .64, 0).rotation.y = Math.PI / 4;
+    sp3(g, .04, GOLD, 0, .76, 0, goldO);
+  }],
+  9:['Ume Kbubu', g => {
+    cy3(g, .34, .36, .08, WOOD, 0, 0, 0, 18);
+    co3(g, .4, .8, THATCH, 0, .08, 0, 18);
+    co3(g, .07, .12, '#6a4a28', 0, .84, 0, 8);
+    bx3(g, .1, .13, .02, DARK, 0, .08, .31);
+  }],
+  11:['Rumah Walewangko', g => {
+    stilts(g, [-.26, 0, .26], [-.15, .15], .28);
+    bx3(g, .66, .26, .42, '#a8683a', 0, .28);
+    gable(g, .76, .56, .26, '#5a2f1c', 0, .54, 0);
+    windowsRow(g, [-.18, .18], .36, .211, .1, .1, WALL);
+    bx3(g, .1, .17, .012, DARK, 0, .28, .211);
+    const st = bx3(g, .12, .03, .28, WOOD, 0, .1, .32); st.rotation.x = -.7;
+  }],
+  13:['Jembatan Kuning', g => {
+    bx3(g, .96, .02, .52, '#3c8fe0');
+    bx3(g, .94, .04, .24, '#6b6b6b', 0, .14);
+    for (const x of [-.42, .42]) bx3(g, .08, .14, .26, STONE, x, 0);
+    for (const z of [-.1, .1]) {
+      add(g, new THREE.TorusGeometry(.4, .025, 8, 40, Math.PI), '#f2cf1d', 0, .16, z, { emissive:'#5a4a00', emissiveIntensity:.2 });
+      for (const x of [-.24, -.12, 0, .12, .24]) { const h = Math.sqrt(.16 - x * x); cy3(g, .006, .006, h, '#d8b81a', x, .16, z, 4); }
+    }
+  }],
+  14:['Tongkonan', g => {
+    stilts(g, [-.2, 0, .2], [-.12, .12], .24);
+    bx3(g, .5, .22, .34, '#7a2a1e', 0, .24);
+    for (const [y, c] of [[.27, '#1a1a1a'], [.33, '#e0b23a'], [.39, '#f4efe3']]) bx3(g, .5, .03, .012, c, 0, y, .176);
+    saddle(g, .5, .42, .1, .3, '#2a221c', 0, .46, 0);
+    add(g, new THREE.TorusGeometry(.06, .012, 6, 16, Math.PI), WHITE, 0, .3, .2).rotation.z = Math.PI;
+  }],
+  16:['Tugu Khatulistiwa', g => {
+    bx3(g, .52, .06, .52, STONE);
+    for (const x of [-.12, .12]) for (const z of [-.12, .12]) { bx3(g, .06, .62, .06, '#2a2a2a', x, .06, z); for (let k = 0; k < 3; k++) bx3(g, .065, .06, .065, WHITE, x, .16 + k * .18, z); }
+    bx3(g, .32, .04, .32, '#2a2a2a', 0, .68);
+    sp3(g, .1, '#d8d2c4', 0, .84, 0, { metalness:.5, roughness:.3 });
+    add(g, new THREE.TorusGeometry(.13, .012, 6, 32), GOLD, 0, .84, 0, goldO);
+    bx3(g, .5, .02, .02, RED, 0, 1.0); co3(g, .03, .06, RED, .25, .98, 0, 6).rotation.z = -Math.PI / 2;
+  }],
+  18:['Rumah Bubungan Tinggi', g => {
+    stilts(g, [-.26, 0, .26], [-.14, .14], .14);
+    bx3(g, .66, .24, .4, '#9c6a3c', 0, .14);
+    gable(g, .7, .48, .16, '#4a2a18', 0, .38, 0);
+    const tall = gable(g, .3, .44, .62, '#3a2214', 0, .38, 0); tall.rotation.y = Math.PI / 2;
+    bx3(g, .1, .16, .012, DARK, 0, .14, .201);
+    windowsRow(g, [-.2, .2], .22, .201, .08, .08, WALL);
+  }],
+  19:['Rumah Lamin', g => {
+    stilts(g, [-.36, -.12, .12, .36], [-.12, .12], .2);
+    bx3(g, .86, .2, .34, '#e7d3a8', 0, .2);
+    for (let k = 0; k < 8; k++) bx3(g, .08, .12, .012, ['#c8302a', '#1a1a1a', '#e0b23a', '#ffffff'][k % 4], -.35 + k * .1, .24, .176);
+    gable(g, .92, .44, .2, DARK, 0, .4, 0);
+    for (const x of [-.4, .4]) { cy3(g, .03, .03, .6, '#c8302a', x, 0, .22, 8); sp3(g, .045, '#e0b23a', x, .62, .22); }
+  }],
+  21:['Rumah Gadang', g => {
+    bx3(g, .74, .06, .42, STONE);
+    bx3(g, .66, .26, .36, '#8a3a22', 0, .06);
+    bx3(g, .66, .04, .012, GOLD, 0, .24, .181, goldO);
+    windowsRow(g, [-.22, -.07, .07, .22], .1, .181, .08, .1, '#3a1a10');
+    saddle(g, .64, .42, .1, .34, '#2e241c', 0, .32, 0);
+    for (const x of [-.24, .24]) { const s = saddle(g, .16, .3, .06, .2, '#2e241c', x, .3, .12); s.rotation.y = Math.PI / 2; }
+  }],
+  23:['Jembatan Ampera', g => {
+    bx3(g, .96, .02, .52, '#3c8fe0');
+    bx3(g, .96, .05, .24, '#b8322b', 0, .18);
+    for (const x of [-.26, .26]) {
+      for (const z of [-.09, .09]) bx3(g, .08, .86, .07, RED, x, 0, z);
+      bx3(g, .1, .07, .26, RED, x, .86);
+    }
+    for (const z of [-.09, .09]) bx3(g, .6, .05, .04, RED, 0, .78, z);
+  }],
+  24:['Istana Maimun', g => {
+    bx3(g, .82, .05, .46, STONE);
+    bx3(g, .38, .34, .32, '#f2cf1d', 0, .05);
+    for (const x of [-.3, .3]) { bx3(g, .2, .24, .28, '#f2cf1d', x, .05); dome(g, .07, '#2f6a3a', x, .29, 0); }
+    windowsRow(g, [-.11, 0, .11], .12, .161, .06, .14, '#5a2a1a');
+    cy3(g, .11, .11, .08, WHITE, 0, .39, 0, 16);
+    dome(g, .13, '#2f6a3a', 0, .47, 0);
+    co3(g, .02, .08, GOLD, 0, .59, 0, 8, goldO);
+  }],
+  26:['Lawang Sewu', g => {
+    bx3(g, .88, .34, .3, WHITE, 0, 0, -.06);
+    bx3(g, .9, .06, .32, '#a8432a', 0, .34, -.06);
+    for (let r = 0; r < 2; r++) windowsRow(g, [-.36, -.27, -.18, -.09, .09, .18, .27, .36], .05 + r * .15, .091, .05, .1, '#3a2a1e');
+    for (const x of [-.11, .11]) { cy3(g, .07, .07, .52, WHITE, x, 0, .14, 10); dome(g, .075, '#6a4a3a', x, .52, .14); }
+    bx3(g, .14, .2, .02, '#3a2a1e', 0, 0, .1);
+  }],
+  27:['Candi Prambanan', g => {
+    const st = '#8f887c';
+    bx3(g, .66, .08, .66, STONE); bx3(g, .52, .08, .52, st, 0, .08);
+    bx3(g, .3, .28, .3, st, 0, .16);
+    bx3(g, .1, .14, .012, DARK, 0, .16, .151);
+    for (let k = 0; k < 6; k++) bx3(g, .28 - k * .04, .06, .28 - k * .04, k % 2 ? STONE : st, 0, .44 + k * .06);
+    co3(g, .045, .16, st, 0, .8, 0, 4);
+    for (const x of [-.25, .25]) for (const z of [-.25, .25]) { bx3(g, .1, .12, .1, st, x, .16, z); co3(g, .05, .1, st, x, .28, z, 4); }
+  }],
+  29:['Monumen Kapal Selam', g => {
+    for (const x of [-.24, .24]) bx3(g, .12, .1, .16, STONE, x);
+    const hull = add(g, new THREE.CylinderGeometry(.13, .13, .6, 20), '#4a5a4e', 0, .23, 0); hull.rotation.z = Math.PI / 2;
+    sp3(g, .13, '#4a5a4e', .3, .23, 0); sp3(g, .13, '#4a5a4e', -.3, .23, 0);
+    bx3(g, .62, .02, .262, '#c8302a', 0, .14);
+    bx3(g, .18, .17, .1, '#4a5a4e', .04, .34);
+    cy3(g, .012, .012, .14, '#2a2a2a', .08, .51, 0, 6);
+    bx3(g, .1, .04, .012, WHITE, .04, .42, .051);
+  }],
+  31:['Lumbung Sasak', g => {
+    stilts(g, [-.13, .13], [-.13, .13], .28);
+    bx3(g, .4, .03, .4, WOOD, 0, .28);
+    const pts = [[.38, 0], [.3, .1], [.25, .32], [.17, .56], [.07, .7], [0, .74]].map(([a, b]) => new THREE.Vector2(a, b));
+    add(g, new THREE.LatheGeometry(pts, 24), THATCH, 0, .31, 0);
+    bx3(g, .1, .12, .02, DARK, 0, .4, .27);
+  }],
+  32:['Patung Komodo', g => {
+    const rock = add(g, new THREE.DodecahedronGeometry(.3), '#7d7466', 0, .06, 0); rock.scale.set(1.45, .45, 1.05);
+    const skin = '#6b6a3a';
+    const body = sp3(g, .1, skin, 0, .27, 0); body.scale.set(2.6, 1, 1.3);
+    const head = bx3(g, .16, .08, .1, skin, .32, .23, 0); head.rotation.z = -.15;
+    const tail = add(g, new THREE.ConeGeometry(.07, .4, 10), skin, -.42, .24, 0); tail.rotation.z = Math.PI / 2;
+    for (const x of [-.14, .14]) for (const z of [-.1, .1]) { const l = cy3(g, .025, .02, .12, skin, x, .15, z, 6); l.rotation.x = z > 0 ? .4 : -.4; }
+    bx3(g, .1, .006, .012, RED, .44, .24, 0);
+  }],
+  34:['Gedung Sate', g => {
+    bx3(g, .84, .05, .46, STONE);
+    bx3(g, .8, .22, .3, WHITE, 0, .05, -.04);
+    gable(g, .84, .36, .1, '#5a3a2a', 0, .27, -.04);
+    windowsRow(g, [-.32, -.22, -.12, .12, .22, .32], .1, .111, .05, .1, '#3a2a1e');
+    bx3(g, .2, .3, .2, WHITE, 0, .05, .1);
+    add(g, new THREE.ConeGeometry(.18, .12, 4), '#5a3a2a', 0, .41, .1).rotation.y = Math.PI / 4;
+    add(g, new THREE.ConeGeometry(.12, .1, 4), '#5a3a2a', 0, .5, .1).rotation.y = Math.PI / 4;
+    cy3(g, .008, .008, .24, '#5a3a2a', 0, .53, .1, 6);
+    for (let k = 0; k < 6; k++) sp3(g, .022, GOLD, 0, .58 + k * .03, .1, goldO);
+  }],
+  37:['Pura & Candi Bentar', g => {
+    const bata = '#b8603a';
+    bx3(g, .26, .16, .26, bata, 0, 0, -.2);
+    for (let k = 0; k < 6; k++) bx3(g, .4 - k * .055, .035, .4 - k * .055, '#2e231b', 0, .16 + k * .08, -.2);
+    sp3(g, .03, GOLD, 0, .66, -.2, goldO);
+    for (const sd of [-1, 1]) for (let k = 0; k < 6; k++) {
+      const w = .2 - k * .028;
+      bx3(g, w, .1, .16, k % 2 ? STONE : bata, sd * (.07 + w / 2), k * .1, .2);
+    }
+  }],
+  39:['Monas', g => {
+    bx3(g, .7, .06, .7, STONE);
+    add(g, new THREE.CylinderGeometry(.34, .2, .16, 4), WHITE, 0, .14, 0).rotation.y = Math.PI / 4;
+    add(g, new THREE.CylinderGeometry(.035, .075, 1, 4), WHITE, 0, .72, 0).rotation.y = Math.PI / 4;
+    cy3(g, .07, .04, .05, '#555', 0, 1.22, 0, 12);
+    co3(g, .065, .16, GOLD, 0, 1.27, 0, 12, { metalness:.7, roughness:.25, emissive:'#a86a00', emissiveIntensity:.5 });
+  }],
+};
+function landmarkModel(i, hex) {
+  const g = new THREE.Group();
+  LANDMARKS[i][1](g);
+  // alas tipis warna pemilik supaya jelas milik siapa
+  bx3(g, .9, .015, .9, MAT(hex, { emissive:hex, emissiveIntensity:.3 }), 0, -.012);
+  return g;
+}
+function getMarker(i) {
+  if (markers[i]) return markers[i];
+  const g = new THREE.Group(), s = Math.floor(i / 10), L = tileLocal(i), [x, z] = rot(L.x, L.z, s);
+  g.position.set(x, 0, z); g.rotation.y = -s * Math.PI / 2; scene.add(g);
+  const plateMat = new THREE.MeshStandardMaterial({ color:'#fff', emissive:'#000', roughness:.4, transparent:true, opacity:.92 });
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(W * .9, .035, .22), plateMat); plate.position.set(0, .018, C / 2 - .14);
+  const flag = new THREE.Group(); flag.position.set(.34, 0, C / 2 - .14);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .8, 8), new THREE.MeshStandardMaterial({ color:'#d8d2c4', metalness:.6, roughness:.3 })); pole.position.y = .4;
+  const clothMat = new THREE.MeshStandardMaterial({ color:'#fff', side:THREE.DoubleSide, roughness:.6, emissive:'#000' });
+  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(.36, .24, 6, 1), clothMat); cloth.position.set(-.18, .66, 0);
+  pole.castShadow = cloth.castShadow = true;
+  flag.add(pole, cloth); g.add(plate, flag);
+  const m = markers[i] = { i, g, plate, plateMat, flag, cloth, clothMat, bld:null, hex:null, owner:-1, lv:0 };
+  g.visible = false;
+  return m;
+}
+const BLD_Z = -.3;   // bangunan di bagian dalam petak, pion tetap di bagian luar
+function placeBuildings(m, lv) {
+  if (m.bld) { m.g.remove(m.bld); m.bld = null; }
+  if (lv > 0 && m.hex) {
+    m.bld = lv === LANDMARK_LV ? landmarkModel(m.i, m.hex) : lvBuilding(lv, m.hex);
+    m.bld.position.set(0, 0, BLD_Z);
+    m.g.add(m.bld);
+  }
+  m.lv = lv;
+}
+function setOwner(i, owner, lv, hexes) {
+  const m = getMarker(i);
+  if (owner < 0) { m.g.visible = false; m.owner = -1; placeBuildings(m, 0); return; }
+  m.g.visible = true; m.owner = owner;
+  const hex = hexes[owner];
+  m.plateMat.color.set(hex); m.plateMat.emissive.set(hex); m.plateMat.emissiveIntensity = .35;
+  m.clothMat.color.set(hex); m.clothMat.emissive.set(hex); m.clothMat.emissiveIntensity = .25;
+  m.plate.scale.set(1, 1, 1); m.flag.scale.set(1, 1, 1);
+  const recolor = m.hex !== hex; m.hex = hex;
+  if (m.lv !== lv || recolor || (lv > 0 && !m.bld)) placeBuildings(m, lv);
+  if (m.bld) { m.bld.scale.set(1, 1, 1); m.bld.position.y = 0; }
+}
+
+/* ---- Tween ---- */
+const tweens = [];
+function tween(dur, fn, ease = t => t) {
+  if (reduced) dur = Math.min(dur, 60);
+  return new Promise(res => tweens.push({ t0:performance.now(), dur, fn, ease, res }));
+}
+const E = {
+  out: t => 1 - (1 - t) ** 3,
+  inOut: t => t < .5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2,
+  back: t => { const c = 1.9; return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2; },
+  bounce: t => { const n = 7.5625, d = 2.75; if (t < 1 / d) return n * t * t; if (t < 2 / d) return n * (t -= 1.5 / d) * t + .75; if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + .9375; return n * (t -= 2.625 / d) * t + .984375; },
+};
+
+/* ---- Animasi ---- */
+const lerp = (a, b, t) => a + (b - a) * t;
+// Efek pembuka singkat sebelum dadu muncul: jarum berdenyut, cincin cahaya mengembang di tengah papan, bunyi naik
+const glowRing = new THREE.Mesh(new THREE.RingGeometry(.6, .78, 64), new THREE.MeshBasicMaterial({ color:'#ffd56b', transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false }));
+glowRing.rotation.x = -Math.PI / 2; glowRing.position.set(0, .03, .4); scene.add(glowRing);
+const glowDisc = new THREE.Mesh(new THREE.CircleGeometry(1.4, 48), new THREE.MeshBasicMaterial({ color:'#fff3c4', transparent:true, opacity:0, depthWrite:false }));
+glowDisc.rotation.x = -Math.PI / 2; glowDisc.position.set(0, .02, .4); scene.add(glowDisc);
+async function diceIntro(hex) {
+  const knob = $('#arcKnob'); if (knob) knob.classList.add('pulse');
+  const fl = $('#flash'); fl.style.setProperty('--c', hex); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go');
+  sfx.whoosh();
+  glowRing.material.color.set(hex);
+  await tween(620, t => {
+    const s = .4 + t * 3.2;
+    glowRing.scale.set(s, s, s); glowRing.material.opacity = Math.sin(t * Math.PI) * .9;
+    glowDisc.scale.setScalar(.6 + t * .8); glowDisc.material.opacity = Math.sin(t * Math.PI) * .45;
+  });
+  glowRing.material.opacity = glowDisc.material.opacity = 0;
+  if (knob) knob.classList.remove('pulse');
+}
+async function throwDice(d) {
+  sfx.dice();
+  const starts = [new THREE.Vector3(-.5, 3.4, .9), new THREE.Vector3(.5, 3.8, .5)];
+  const ends = [new THREE.Vector3(-.55 + Math.random() * .25, DS / 2, .6 + Math.random() * .4), new THREE.Vector3(.5 + Math.random() * .25, DS / 2, .2 + Math.random() * .4)];
+  const fin = d.map(v => { const [rx, rz] = FACE_ROT[v]; return { x:rx, y:Math.random() * Math.PI * 2, z:rz }; });
+  const spin = d.map(() => ({ x:(2 + Math.floor(Math.random() * 3)) * Math.PI * 2, y:(1 + Math.floor(Math.random() * 2)) * Math.PI * 2, z:(1 + Math.floor(Math.random() * 3)) * Math.PI * 2 }));
+  dice.forEach(m => { m.visible = true; m.scale.setScalar(.01); });
+  await tween(1350, t => {
+    const e = E.out(t);
+    dice.forEach((m, k) => {
+      m.scale.setScalar(Math.min(1, .2 + t * 6));   // dadu muncul membesar dari titik cahaya
+      const a = starts[k], b = ends[k];
+      m.position.x = lerp(a.x, b.x, e); m.position.z = lerp(a.z, b.z, e);
+      m.position.y = DS / 2 + Math.abs(Math.cos(t * Math.PI * 3)) * (1 - t) ** 1.7 * (a.y - DS / 2);
+      m.rotation.x = fin[k].x + spin[k].x * (1 - e);
+      m.rotation.y = fin[k].y + spin[k].y * (1 - e);
+      m.rotation.z = fin[k].z + spin[k].z * (1 - e);
+    });
+  });
+}
+async function hopPawn(pi, to, h = .45, dur = 210) {
+  const p = pawns[pi], from = p.position.clone();
+  sfx.hop();
+  await tween(dur, t => {
+    p.position.x = lerp(from.x, to.x, t); p.position.z = lerp(from.z, to.z, t);
+    p.position.y = Math.sin(t * Math.PI) * h;
+    const sq = 1 + Math.sin(t * Math.PI) * .12; p.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
+  });
+  p.scale.set(1, 1, 1);
+}
+// ---- Angka langkah 1-12 di pinggir papan, di depan pion yang sedang giliran ----
+function stepTex(n, lit) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+  x.beginPath(); x.arc(64, 64, 56, 0, Math.PI * 2);
+  x.fillStyle = lit ? '#ffd23a' : '#2a1d12'; x.fill();
+  x.lineWidth = 8; x.strokeStyle = lit ? '#fff6d0' : '#f6ebcf'; x.stroke();
+  x.fillStyle = lit ? '#2a1d12' : '#fff'; x.font = `64px ${FD}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(String(n), 64, 70);
+  return canvasTex(cv);
+}
+const stepLabels = [];
+for (let n = 1; n <= 12; n++) {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ transparent:true }));
+  sp.userData = { n, tex:null }; sp.visible = false; sp.scale.set(.42, .42, 1); scene.add(sp); stepLabels.push(sp);
+}
+// tekstur dibuat saat pertama dipakai, supaya huruf Alfa Slab One sudah termuat
+function ensureStepTex(sp) { if (!sp.userData.tex) sp.userData.tex = [stepTex(sp.userData.n, false), stepTex(sp.userData.n, true)]; return sp.userData.tex; }
+let stepsFrom = -1;
+function edgeSpot(i) {
+  const s = Math.floor(i / 10), L = tileLocal(i);
+  const [x, z] = rot(L.x, S / 2 + .14, s);   // di bingkai kayu, tepat di luar petak
+  return new THREE.Vector3(x, .26, z);
+}
+function showSteps(from) {
+  if (stepsFrom === from && stepLabels[0].visible) return;
+  stepsFrom = from;
+  stepLabels.forEach((sp, k) => {
+    sp.position.copy(edgeSpot((from + k + 1) % 40));
+    sp.material.map = ensureStepTex(sp)[0]; sp.material.needsUpdate = true; sp.scale.set(.55, .55, 1); sp.visible = true;
+  });
+}
+function hideSteps() { stepsFrom = -1; stepLabels.forEach(sp => sp.visible = false); }
+function litStep(k) {
+  const sp = stepLabels[k - 1]; if (!sp || !sp.visible) return;
+  sp.material.map = ensureStepTex(sp)[1]; sp.material.needsUpdate = true;
+  tone(520 + k * 60, .06, 'triangle', .05);
+  tween(260, t => { const s = .55 + Math.sin(t * Math.PI) * .35 + t * .12; sp.scale.set(s, s, 1); });
+}
+
+async function movePawn(pi, from, steps) {
+  const dir = Math.sign(steps), n = Math.abs(steps);
+  let cur = from;
+  pawns.forEach((p, k) => p.userData.aura.visible = k === pi);
+  const counting = dir > 0 && n <= 12;
+  if (counting) showSteps(from); else hideSteps();
+  for (let k = 0; k < n; k++) {
+    cur = (cur + dir + 40) % 40;
+    const spot = pawnSpot(cur, pi, false);
+    follow = pawns[pi].position;
+    if (counting) litStep(k + 1);
+    await hopPawn(pi, spot, .45, n > 8 ? 170 : 210);
+  }
+  await sleep(250);
+  hideSteps();
+  await tween(140, t => { const s = 1 - Math.sin(t * Math.PI) * .18; pawns[pi].scale.set(1 + (1 - s) * .6, s, 1 + (1 - s) * .6); });
+  pawns[pi].scale.set(1, 1, 1);
+}
+async function flyToJail(pi) {
+  sfx.bad();
+  const p = pawns[pi], from = p.position.clone(), to = pawnSpot(10, pi, true);
+  follow = p.position;
+  await tween(950, t => {
+    const e = E.inOut(t);
+    p.position.x = lerp(from.x, to.x, e); p.position.z = lerp(from.z, to.z, e);
+    p.position.y = Math.sin(t * Math.PI) * 2.4; p.rotation.y = e * Math.PI * 4;
+  });
+  p.rotation.y = 0; p.position.y = 0;
+}
+const coinGeo = new THREE.CylinderGeometry(.09, .09, .025, 20);
+const coinMat = new THREE.MeshStandardMaterial({ color:'#f0b93a', metalness:.85, roughness:.25, emissive:'#5a3a00', emissiveIntensity:.3 });
+async function coinsFly(from, to, n = 8) {
+  sfx.coin();
+  const coins = [];
+  const jobs = [];
+  for (let k = 0; k < n; k++) {
+    const c = new THREE.Mesh(coinGeo, coinMat); c.position.copy(from); c.castShadow = true; scene.add(c); coins.push(c);
+    const jitter = new THREE.Vector3((Math.random() - .5) * .5, 0, (Math.random() - .5) * .5);
+    const delay = k * 55;
+    jobs.push(sleep(delay).then(() => tween(620, t => {
+      const e = E.inOut(t);
+      c.position.x = lerp(from.x + jitter.x * (1 - t), to.x, e);
+      c.position.z = lerp(from.z + jitter.z * (1 - t), to.z, e);
+      c.position.y = .3 + Math.sin(t * Math.PI) * 1.8;
+      c.rotation.x = t * 12; c.rotation.z = t * 7;
+    })).then(() => { scene.remove(c); if (k % 3 === 0) tone(1500 + k * 40, .04, 'square', .02); }));
+  }
+  await Promise.all(jobs);
+}
+async function animBuy(i, owner, hexes) {
+  const m = getMarker(i);
+  setOwner(i, owner, 0, hexes);
+  m.plate.scale.set(.01, 1, 1); m.flag.scale.set(1, .01, 1);
+  const L = new THREE.Vector3(); m.g.getWorldPosition(L);
+  const burst = coinsFly(new THREE.Vector3(L.x, 2.5, L.z), L, 10);
+  await tween(320, t => m.plate.scale.set(Math.max(.01, E.out(t)), 1, 1));
+  await tween(520, t => m.flag.scale.set(1, Math.max(.01, E.back(t)), 1));
+  await burst;
+}
+// Naik tingkat: bangunan lama mengecil, bangunan baru tumbuh memantul, ada kepulan debu.
+// Landmark mendapat tambahan sorotan cahaya dan hujan koin emas.
+async function animBuild(i, lv) {
+  const m = getMarker(i), old = m.bld;
+  const wp = new THREE.Vector3(); m.g.localToWorld(wp.set(0, 0, BLD_Z));
+  follow = wp.clone();
+  if (old) await tween(220, t => old.scale.setScalar(Math.max(.01, 1 - E.inOut(t))));
+  placeBuildings(m, lv);
+  const b = m.bld; if (!b) return;
+  b.scale.setScalar(.01);
+  sfx.build();
+  const dust = new THREE.Mesh(new THREE.RingGeometry(.2, .32, 32), new THREE.MeshBasicMaterial({ color:'#efe3c4', transparent:true, opacity:.8, depthWrite:false }));
+  dust.rotation.x = -Math.PI / 2; dust.position.set(wp.x, .03, wp.z); scene.add(dust);
+  const jobs = [tween(560, t => { const s = .3 + t * 1.6; dust.scale.set(s, s, s); dust.material.opacity = .8 * (1 - t); })];
+  if (lv === LANDMARK_LV) {
+    glowRing.position.set(wp.x, .04, wp.z); glowRing.material.color.set(m.hex);
+    jobs.push(tween(900, t => { const s = .3 + t * 2; glowRing.scale.set(s, s, s); glowRing.material.opacity = Math.sin(t * Math.PI) * .9; }));
+    jobs.push(coinsFly(new THREE.Vector3(wp.x, 3.2, wp.z), new THREE.Vector3(wp.x, .4, wp.z), 14));
+    sfx.win();
+  }
+  jobs.push(tween(lv === LANDMARK_LV ? 900 : 600, t => b.scale.setScalar(Math.max(.01, E.back(t)))));
+  await Promise.all(jobs);
+  scene.remove(dust); dust.geometry.dispose(); dust.material.dispose();
+  glowRing.material.opacity = 0; glowRing.position.set(0, .03, .4);
+  b.scale.setScalar(1);
+  noise(.08, .2, 0, 200);
+}
+
+/* ---- Kamera ---- */
+let fitDist = 20;
+const CAM_DIR = new THREE.Vector3(0, Math.sin(1.0), Math.cos(1.0)).normalize();
+function layout() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  const hud = $('#hud'), dock = $('#dock');
+  const top = hud.hidden ? 0 : hud.offsetHeight + 6, bot = dock.hidden ? 0 : dock.offsetHeight + 6;
+  camera.setViewOffset(w, h, 0, (bot - top) / 2, w, h);
+  camera.updateProjectionMatrix();
+  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const availH = Math.max(160, h - top - bot);
+  const dH = (S * 1.12) / (2 * tanH) * (h / availH);
+  const dW = (S * 1.18) / (2 * tanH * camera.aspect);
+  fitDist = Math.min(70, Math.max(dH, dW) + 1.5);
+  const elev = camera.aspect < .8 ? 1.22 : 1.0;    // layar tegak: kamera lebih tinggi supaya papan tidak terlalu miring
+  CAM_DIR.set(0, Math.sin(elev), Math.cos(elev));
+}
+function resetCam(snap) {
+  const goal = CAM_DIR.clone().multiplyScalar(fitDist);
+  if (snap) { camera.position.copy(goal); return; }
+  const from = camera.position.clone();
+  tween(700, t => camera.position.lerpVectors(from, goal, E.inOut(t)));
+}
+addEventListener('resize', () => { layout(); });
+
+let clock = 0;
+function stepTweens(now) {
+  for (let k = tweens.length - 1; k >= 0; k--) {
+    const tw = tweens[k], t = Math.max(0, Math.min(1, (now - tw.t0) / tw.dur));
+    tw.fn(tw.ease(t));
+    if (t >= 1) { tweens.splice(k, 1); tw.res(); }
+  }
+}
+// cadangan saat tab di latar belakang (rAF berhenti), supaya permainan tidak macet
+setInterval(() => { if (tweens.length) stepTweens(performance.now()); }, 120);
+function frame(now) {
+  requestAnimationFrame(frame);
+  stepTweens(performance.now());
+  clock = now / 1000;
+  for (const k in markers) { const m = markers[k]; if (m.g.visible) m.cloth.rotation.y = Math.sin(clock * 3 + +k) * .35; }
+  pawns.forEach(p => {
+    const u = p.userData, r = u.ring;
+    if (r.visible) { const s = 1 + Math.sin(clock * 4) * .12; r.scale.set(s, s, s); r.material.opacity = .55 + Math.sin(clock * 4) * .35; }
+    // aura berdenyut; lampu tetap ada (intensitas 0) supaya tidak memicu kompilasi ulang shader
+    const on = u.aura.visible && p.visible, pulse = Math.sin(clock * 5);
+    u.light.intensity = on ? .8 + pulse * .25 : 0;
+    if (on) {
+      const gs = 1.6 + pulse * .2; u.glow.scale.set(gs, gs, 1);
+      u.glow.material.opacity = .45;
+      u.beam.material.opacity = .35 + pulse * .1; u.beam.rotation.y = clock;
+      u.arrow.position.y = 1.55 + Math.abs(Math.sin(clock * 3.2)) * .35; u.arrow.rotation.y = clock * 2;
+    }
+  });
+  if (follow) {
+    // mode ikuti: kamera mendekat ke pion (atau bangunan) yang sedang bergerak
+    camGoal.copy(follow); camGoal.y = 0;
+    followWant.copy(CAM_DIR).multiplyScalar(Math.max(7, fitDist * .34)).add(camGoal);
+    camera.position.lerp(followWant, .07);
+    controls.target.lerp(camGoal, .09);
+  } else controls.target.lerp(camGoal, .05);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+/* =========================================================
+   STATE KLIEN, SINKRONISASI, UI
+   ========================================================= */
+let S0 = null;           // state yang sedang ditampilkan
+let shownSeq = -1;
+let mode = null;         // 'local' | 'online'
+let playing = false, busy = false;
+const queue = [];
+let dispMoney = [0, 0];
+let pref = lsGet('mn_pref') || 'bebas';
+let DB = null, roomRef = null, roomCode = null, unsub = null;
+const myId = (() => { let id = lsGet('mn_dev'); if (!id) { id = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); lsSet('mn_dev', id); } return id; })();
+
+const hexesOf = st => st.players.map(p => colorHex(p.color));
+const isMine = pi => mode === 'local' || (S0 && S0.players[pi] && S0.players[pi].id === myId);
+const myTurn = () => S0 && isMine(S0.turn);
+
+function syncAll(st) {
+  const hx = hexesOf(st);
+  st.players.forEach((p, k) => {
+    setPawnColor(k, hx[k]);
+    pawns[k].visible = !p.out;
+    pawns[k].position.copy(pawnSpot(p.pos, k, p.jail > 0 && p.pos === 10));
+    pawns[k].rotation.set(0, 0, 0); pawns[k].scale.set(1, 1, 1);
+    pawns[k].userData.ring.visible = st.phase !== 'over' && st.turn === k;
+    pawns[k].userData.aura.visible = st.phase !== 'over' && st.turn === k && !p.out;
+  });
+  for (let i = 0; i < 40; i++) {
+    const o = st.own[i];
+    if (o) setOwner(i, o.o, o.lv, hx);
+    else if (markers[i]) setOwner(i, -1, 0, hx);
+  }
+  camGoal.set(0, 0, 0);
+}
+
+function receive(st) {
+  // simpanan dari versi lama memakai 5 tingkat; landmark sekarang tingkat 4
+  if (st && st.own) for (const k in st.own) if (st.own[k].lv > LANDMARK_LV) st.own[k].lv = LANDMARK_LV;
+  queue.push(st); pump();
+}
+async function pump() {
+  if (playing) return;
+  playing = true; renderUI();
+  while (queue.length) {
+    const st = queue.shift();
+    if (!st || (S0 && st.seq <= shownSeq)) continue;
+    const animate = S0 && shownSeq >= 0 && queue.length < 3 && st.fx && st.fx.length;
+    if (animate) {
+      closeModal(true);
+      try { await playFx(st.fx, st); } catch (e) { console.error(e); }
+    }
+    S0 = st; shownSeq = st.seq;
+    syncAll(st);
+    st.players.forEach((p, k) => animMoney(k, p.money));
+  }
+  playing = false;
+  renderUI();
+}
+
+async function playFx(list, st) {
+  const names = st.players.map(p => p.name), hx = hexesOf(st);
+  for (const f of list) {
+    switch (f.t) {
+      case 'dice':
+        // pemain lain ikut melihat jarum berhenti di posisi lemparan
+        if (typeof f.g === 'number') gaugeP = f.g;
+        shownPref = f.pref; renderDock();
+        await diceIntro(hx[f.p]);
+        await throwDice(f.d); showDiceResult(f); await sleep(380); break;
+      case 'move': await movePawn(f.p, f.from, f.steps); break;
+      case 'jail': await flyToJail(f.p); toast(`${names[f.p]} masuk penjara!`); await sleep(500); break;
+      case 'gain': {
+        const to = pawns[f.p].position.clone(); to.y = .3;
+        await coinsFly(f.fromPot ? new THREE.Vector3(0, .3, 0) : new THREE.Vector3(to.x * .3, 3, to.z * .3), to, f.amt >= 150 ? 10 : 6);
+        moneyDelta(f.p, f.amt); toast(`${names[f.p]} +${fmt(f.amt)} · ${f.why}`);
+        await sleep(350); break;
+      }
+      case 'pay': {
+        const from = pawns[f.from].position.clone(); from.y = .3;
+        const to = f.to >= 0 ? pawns[f.to].position.clone() : new THREE.Vector3(0, .3, 0);
+        await coinsFly(from, to, f.amt >= 200 ? 10 : 6);
+        moneyDelta(f.from, -f.amt); if (f.to >= 0) moneyDelta(f.to, f.amt);
+        toast(`${names[f.from]} bayar ${fmt(f.amt)} · ${f.why}`);
+        if (f.to >= 0 && f.amt >= 200) stamp('MAHAL!', '#c8302a');
+        await sleep(450); break;
+      }
+      case 'buy':
+        stamp('DIBELI!', hx[f.p]);
+        moneyDelta(f.p, -f.amt);
+        await animBuy(f.tile, f.p, hx);
+        toast(`${names[f.p]} sekarang punya ${T[f.tile].n}`);
+        await sleep(300); break;
+      case 'build':
+        stamp(f.lv === LANDMARK_LV ? 'LANDMARK!' : LEVEL_NAMES[f.lv].toUpperCase() + '!', hx[f.p]);
+        moneyDelta(f.p, -f.amt);
+        await animBuild(f.tile, f.lv);
+        toast(f.lv === LANDMARK_LV ? `${LANDMARKS[f.tile][0]} berdiri di ${T[f.tile].n}!` : `${T[f.tile].n} sekarang ${LEVEL_NAMES[f.lv].toLowerCase()}`);
+        await sleep(f.lv === LANDMARK_LV ? 900 : 300); break;
+      case 'sell': {
+        const o = st.own[f.tile];
+        toast(`Aset di ${T[f.tile].n} dijual untuk menutup utang`);
+        if (o) setOwner(f.tile, o.o, o.lv, hx); else setOwner(f.tile, -1, 0, hx);
+        await sleep(600); break;
+      }
+      case 'card': await showCard(f); break;
+      case 'msg': toast(f.text); await sleep(1100); break;
+      case 'over': sfx.win(); break;
+    }
+  }
+  // selesai: kamera mundur lagi ke tampilan seluruh papan
+  if (follow) { follow = null; camGoal.set(0, 0, 0); resetCam(false); }
+}
+
+/* ---- HUD ---- */
+function chipHTML(st, k) {
+  const p = st.players[k], props = Object.values(st.own).filter(o => o.o === k).length;
+  const meTag = mode === 'online' && p.id === myId ? '<span class="me">KAMU</span>' : '';
+  const meta = [`${props} properti`, p.free ? `${p.free} kartu bebas` : '', p.jail > 0 ? 'di penjara' : ''].filter(Boolean).join(' · ');
+  return `<span class="tok"></span><div class="info"><span class="nm">${k === 1 ? meTag : ''}${esc(p.name)}${k === 0 ? meTag : ''}</span>
+    <span class="money" id="money${k}">${fmt(shownMoney[k])}</span><span class="meta">${meta}</span></div>`;
+}
+function renderHUD() {
+  const hud = $('#hud');
+  if (!S0) { hud.hidden = true; return; }
+  hud.hidden = false;
+  [0, 1].forEach(k => {
+    const el = $('#chip' + k), p = S0.players[k];
+    el.style.setProperty('--c', colorHex(p.color));
+    el.innerHTML = chipHTML(S0, k);
+    el.classList.toggle('active', S0.phase !== 'over' && S0.turn === k);
+    el.classList.toggle('out', p.out);
+  });
+  $('#pot').innerHTML = `Kas Bebas Parkir<b>${fmt(S0.pot)}</b>`;
+}
+// dispMoney = nilai yang seharusnya tampil; shownMoney = angka yang sedang dianimasikan menuju nilai itu
+const moneyTweens = [null, null], shownMoney = [0, 0];
+function animMoney(k, target) {
+  dispMoney[k] = target;
+  const from = shownMoney[k];
+  const el0 = $('#money' + k);
+  if (from === target) { if (el0) el0.textContent = fmt(target); return; }
+  const id = Symbol(); moneyTweens[k] = id;
+  tween(650, t => {
+    if (moneyTweens[k] !== id) return;
+    shownMoney[k] = Math.round(lerp(from, target, E.out(t)));
+    const el = $('#money' + k); if (el) el.textContent = fmt(shownMoney[k]);
+  });
+}
+function moneyDelta(k, d) {
+  animMoney(k, dispMoney[k] + d);
+  const chip = $('#chip' + k); if (!chip) return;
+  const f = document.createElement('div');
+  f.className = 'float ' + (d >= 0 ? 'plus' : 'minus'); f.textContent = (d >= 0 ? '+' : '') + fmt(d);
+  chip.appendChild(f); setTimeout(() => f.remove(), 1500);
+}
+
+let toastT = 0;
+function toast(text) {
+  const el = $('#toast'); el.textContent = text; el.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function stamp(text, color) {
+  const el = $('#stamp'); el.textContent = text; el.style.setProperty('--c', color);
+  el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+}
+let diceT = 0;
+function showDiceResult(f) {
+  const sum = f.d[0] + f.d[1], el = $('#diceResult');
+  const parityOk = f.pref === 'bebas' || (f.pref === 'ganjil') === (sum % 2 === 1);
+  const diff = Math.abs(sum - f.target);
+  let verdict = diff === 0 && parityOk ? 'Tepat sasaran!' : diff <= 1 ? 'Nyaris!' : 'Meleset';
+  if (f.pref !== 'bebas') verdict += ` · ${f.pref === 'ganjil' ? 'Ganjil' : 'Genap'} ${parityOk ? '✓' : '✗'}`;
+  el.innerHTML = `<div class="sum">${f.d[0]} + ${f.d[1]} = ${sum}${f.d[0] === f.d[1] ? ' · KEMBAR' : ''}</div><div class="acc ${diff <= 1 && parityOk ? 'hit' : ''}">Target ${f.target} · ${verdict}</div>`;
+  el.classList.add('show'); clearTimeout(diceT); diceT = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* ---- Dok dadu ---- */
+let holding = false, holdStart = 0, gaugeP = 0, holdRAF = 0;
+function renderDock() {
+  const dock = $('#dock');
+  if (!S0 || S0.phase === 'over') { dock.hidden = true; hideSteps(); return; }
+  dock.hidden = false;
+  const p = S0.players[S0.turn], c = colorHex(p.color);
+  const mine = myTurn(), free = !playing && !busy;
+  const inJail = S0.phase === 'jail';
+  const canRoll = mine && free && (S0.phase === 'roll' || inJail);
+  const deciding = mine && free && (S0.phase === 'buy' || S0.phase === 'build');
+  let status;
+  if (!free) status = `${esc(p.name)} sedang jalan…`;
+  else if (!mine) {
+    const what = S0.phase === 'buy' ? `memutuskan beli ${T[S0.pending].n}` : S0.phase === 'build' ? `membangun di ${T[S0.pending].n}` : inJail ? 'mencoba keluar penjara' : 'melempar dadu';
+    status = `Menunggu ${esc(p.name)} ${esc(what)}…`;
+  } else if (deciding) status = `Giliran ${esc(p.name)} · putuskan di kartu`;
+  else status = `Giliran ${esc(p.name)}${inJail ? ' · butuh dadu kembar' : ''}`;
+  // bar tetap tampil di semua keadaan; saat bukan waktunya melempar, jarum membeku di posisi lemparan terakhir
+  const showPref = canRoll ? pref : (shownPref || 'bebas');
+  const center = canRoll ? (inJail ? 'COBA<br>KEMBAR' : 'LEMPAR') : deciding ? 'LIHAT<br>KARTU' : '<span class="dots light"><i></i><i></i><i></i></span>';
+  const jail = canRoll && inJail ? `<div class="jailrow"><p>Di penjara · percobaan ${p.jail}/3. Dapat kembar untuk keluar gratis.</p>
+      <button class="btn gold" data-act="jailPay">Bayar ${fmt(JAIL_FINE)}</button>${p.free ? `<button class="btn" data-act="jailCard">Pakai kartu</button>` : ''}</div>` : '';
+  const stops = ['#d8322c', '#f08a24', '#f2cf1d', '#5cc28a', '#3fa7c9', '#2f6fe0', '#8a4fd6', '#ec5fa4'];
+  dock.innerHTML = `<div class="dcard clear"><div class="dpill" style="--c:${c}"><i></i><span>${status}</span></div>${jail}
+    <div class="lgr ${canRoll ? '' : 'idle'}">
+      <svg class="arc" viewBox="0 0 300 96" aria-hidden="true">
+        <defs><linearGradient id="rbw" x1="0" x2="1">${stops.map((c, k) => `<stop offset="${k / (stops.length - 1)}" stop-color="${c}"/>`).join('')}</linearGradient></defs>
+        <path d="${ARC_D}" stroke="#2a1d12" stroke-width="32" fill="none" stroke-linecap="round"/>
+        <path id="arcPath" d="${ARC_D}" stroke="url(#rbw)" stroke-width="22" fill="none" stroke-linecap="round"/>
+        <path d="${ARC_D}" stroke="#ffffff55" stroke-width="5" fill="none" stroke-linecap="round" transform="translate(0,-5)"/>
+        <g id="arcTicks"></g>
+        <g id="arcKnob"><circle r="14" fill="#fff" stroke="#2a1d12" stroke-width="4"/><circle r="5" fill="#2a1d12"/></g>
+      </svg>
+      <div class="lgr-row">
+        <button class="pill" data-pref="ganjil" aria-pressed="${showPref === 'ganjil'}" ${canRoll ? '' : 'disabled'}>GANJIL</button>
+        <button class="roll round" id="rollBtn" ${deciding ? 'data-act="reopen"' : ''} ${canRoll || deciding ? '' : 'disabled'}>${center}</button>
+        <button class="pill" data-pref="genap" aria-pressed="${showPref === 'genap'}" ${canRoll ? '' : 'disabled'}>GENAP</button>
+      </div>
+      ${canRoll ? '<div class="lgr-hint">Tahan tombol, jarum naik turun. Lepas saat kamu yakin.</div>' : ''}
+    </div></div>`;
+  drawArcTicks();
+  setGauge(gaugeP);
+  // angka 1-12 tampil di depan pion selama giliran melempar (juga untuk pemain yang menunggu)
+  if (free && (S0.phase === 'roll' || inJail)) showSteps(p.pos);
+  else if (free) hideSteps();
+  if (deciding && $('#modal').hidden) openDecision();
+}
+let shownPref = null;
+const ARC_D = 'M24,82 Q150,-14 276,82';
+function drawArcTicks() {
+  const path = $('#arcPath'), g = $('#arcTicks');
+  if (!path || !g) return;
+  const len = path.getTotalLength();
+  // garis hitam pembagi zona saja, tanpa angka, supaya tetap menebak-nebak
+  g.innerHTML = [.25, .5, .75].map(t => {
+    const a = path.getPointAtLength(len * t), b = path.getPointAtLength(Math.min(len, len * t + 1));
+    const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    return `<rect x="-2.5" y="-17" width="5" height="34" rx="2" fill="#2a1d12" transform="translate(${a.x},${a.y}) rotate(${ang})"/>`;
+  }).join('');
+}
+function setGauge(p) {
+  const path = $('#arcPath'), knob = $('#arcKnob');
+  if (!path || !knob) return;
+  const pt = path.getPointAtLength(path.getTotalLength() * p);
+  knob.setAttribute('transform', `translate(${pt.x},${pt.y})`);
+}
+function startHold() {
+  if (holding || playing || busy || !myTurn() || !(S0.phase === 'roll' || S0.phase === 'jail')) return;
+  ac();
+  holding = true; holdStart = performance.now();
+  const b = $('#rollBtn'); if (b) b.classList.add('hold');
+  let lastTick = -1;
+  const step = now => {
+    if (!holding) return;
+    const t = (now - holdStart) / 1000;
+    // satu kali naik-turun penuh = 2,6 detik
+    gaugeP = (1 - Math.cos(t * Math.PI * 2 / 2.6)) / 2;
+    setGauge(gaugeP);
+    const n = Math.round(gaugeP * 8); if (n !== lastTick) { lastTick = n; sfx.tick(); }
+    holdRAF = requestAnimationFrame(step);
+  };
+  holdRAF = requestAnimationFrame(step);
+}
+function endHold(cancel) {
+  if (!holding) return;
+  holding = false; cancelAnimationFrame(holdRAF);
+  if (cancel) { renderDock(); return; }
+  const p = gaugeP;
+  shownPref = pref;
+  commit(actRoll(S0, pref, p));
+}
+
+/* ---- Modal ---- */
+let modalOnClose = null;
+function openModal(html, onClose) {
+  const m = $('#modal'); m.innerHTML = html; m.hidden = false; modalOnClose = onClose || null;
+}
+function closeModal(silent) {
+  const m = $('#modal'); if (m.hidden) return;
+  m.hidden = true; m.innerHTML = '';
+  const cb = modalOnClose; modalOnClose = null; if (cb && !silent) cb();
+}
+function deedHTML(i, st, hlRow, curRow) {
+  const t = T[i];
+  if (t.k === 'city') {
+    const g = GROUPS[t.g], r = t.rent;
+    const rows = [['Sewa tanah', r[0]], ['Sewa satu set warna', r[0] * 2], ['Dengan rumah', r[RENT_IDX[1]]], ['Dengan vila', r[RENT_IDX[2]]], ['Dengan hotel', r[RENT_IDX[3]]], [`Landmark ${LANDMARKS[i][0]}`, r[RENT_IDX[4]]]];
+    return `<div class="deed"><div class="dh" style="--g:${g.c};--gt:${g.t}"><small>SURAT HAK MILIK</small><b>${esc(t.n.toUpperCase())}</b><span>${esc(t.r)}</span></div>
+      <table>${rows.map((x, k) => `<tr class="${k === hlRow ? 'hl' : k === curRow ? 'cur' : ''}"><td>${x[0]}</td><td>${fmt(x[1])}</td></tr>`).join('')}</table>
+      <div class="foot">Rumah, vila, hotel ${fmt(g.h)} per tingkat (boleh sekaligus) · landmark ${fmt(g.h * 2)} setelah hotel</div></div>`;
+  }
+  if (t.k === 'rail') {
+    return `<div class="deed"><div class="dh" style="--g:#2a1d12"><small>SURAT HAK MILIK</small><b>${esc(t.n.toUpperCase())}</b><span>Transportasi</span></div>
+      <table>${[1, 2, 3, 4].map(n => `<tr><td>Punya ${n} transportasi</td><td>${fmt(25 * 2 ** (n - 1))}</td></tr>`).join('')}</table>
+      <div class="foot">Stasiun, pelabuhan, dan bandara dihitung bersama</div></div>`;
+  }
+  return `<div class="deed"><div class="dh" style="--g:#e9dcb6;--gt:#2a1d12"><small>SURAT HAK MILIK</small><b>${esc(t.n.toUpperCase())}</b><span>Perusahaan</span></div>
+    <table><tr><td>Punya 1 perusahaan</td><td>4× angka dadu</td></tr><tr><td>Punya 2 perusahaan</td><td>10× angka dadu</td></tr></table></div>`;
+}
+// Pilihan tingkat di kartu keputusan (ala Get Rich: bangun 1-3 tingkat sekaligus, landmark setelah tingkat 3)
+let selTier = 0, selFor = -1;
+function tierOptions(i) {
+  const t = T[i], pl = S0.players[S0.turn];
+  if (S0.phase === 'buy') {
+    const tiers = t.k === 'city' ? [0, 1, 2, 3] : [0];
+    return tiers.map(lv => ({ lv, cost:t.p + (lv ? stepCost(i, 0, lv) : 0) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
+  }
+  const from = S0.own[i].lv;
+  const tiers = from >= MAX_BLD ? [LANDMARK_LV] : [...Array(MAX_BLD - from).keys()].map(k => from + 1 + k);
+  return tiers.map(lv => ({ lv, cost:stepCost(i, from, lv) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
+}
+function openDecision() {
+  const i = S0.pending, t = T[i], pl = S0.players[S0.turn];
+  const opts = tierOptions(i);
+  if (selFor !== S0.seq || !opts.some(o => o.lv === selTier && o.ok)) {
+    selFor = S0.seq;
+    selTier = opts.filter(o => o.ok)[0] ? opts.filter(o => o.ok)[0].lv : opts[0].lv;
+  }
+  const sel = opts.find(o => o.lv === selTier);
+  const name = lv => lv === 0 ? 'Tanah saja' : lv === LANDMARK_LV ? `Landmark ${LANDMARKS[i][0]}` : LEVEL_NAMES[lv];
+  const pills = opts.length > 1 ? `<div class="tiers" role="radiogroup" aria-label="Pilih tingkat bangunan">${opts.map(o =>
+    `<button role="radio" aria-checked="${o.lv === selTier}" data-act="tier" data-lv="${o.lv}" ${o.ok ? '' : 'disabled'}><b>${name(o.lv)}</b><span>${fmt(o.cost)}</span></button>`).join('')}</div>` : '';
+  const bal = `<div class="bal"><span>Uangmu</span><span>${fmt(pl.money)} → <b>${fmt(pl.money - sel.cost)}</b></span></div>`;
+  if (S0.phase === 'buy') {
+    const label = selTier ? `Beli + ${LEVEL_NAMES[selTier].toLowerCase()}` : 'Beli';
+    openModal(`<div class="sheet"><h2>Tanah kosong!</h2><p class="sub">${esc(pl.name)} mendarat di ${esc(t.n)}.${t.k === 'city' ? ' Bisa langsung bangun sampai hotel.' : ''}</p>
+      ${deedHTML(i, S0, t.k === 'city' && selTier ? selTier + 1 : -1)}${pills}${bal}
+      <div class="actions"><button class="btn ghost" data-act="buyNo">Lewati</button><button class="btn red" data-act="buyYes">${label} ${fmt(sel.cost)}</button></div></div>`);
+  } else {
+    const o = S0.own[i], lm = selTier === LANDMARK_LV;
+    const sub = lm ? `Kotamu sudah hotel. Dirikan landmark ${esc(LANDMARKS[i][0])}? Sewanya jadi paling mahal.` : 'Pilih mau dibangun sampai tingkat berapa.';
+    openModal(`<div class="sheet"><h2>Kembali ke ${esc(t.n)}</h2><p class="sub">${sub}</p>${deedHTML(i, S0, selTier + 1, o.lv ? o.lv + 1 : 0)}${pills}${bal}
+      <div class="actions"><button class="btn ghost" data-act="buildNo">Nanti saja</button><button class="btn red" data-act="buildYes">${lm ? 'Dirikan landmark' : 'Bangun ' + LEVEL_NAMES[selTier].toLowerCase()} ${fmt(sel.cost)}</button></div></div>`);
+  }
+}
+function showCard(f) {
+  sfx.card();
+  return new Promise(res => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; closeModal(true); res(); };
+    openModal(`<div><div class="cardwrap" data-act="cardOk"><div class="gcard k-${f.k}">
+      <div class="face back">${f.k === 'ch' ? '?' : '<svg width="70" height="60" viewBox="0 0 80 64"><path d="M4 26 Q40 -10 76 26 Z" fill="#fff"/><rect x="4" y="26" width="72" height="36" rx="4" fill="#fff"/><rect x="33" y="22" width="14" height="18" fill="#e6a93a"/></svg>'}</div>
+      <div class="face front"><small>${f.k === 'ch' ? 'KESEMPATAN' : 'DANA UMUM'}</small><p>${esc(f.text)}</p></div></div></div>
+      <div class="taphint">Ketuk kartu untuk lanjut</div></div>`);
+    cardDone = finish;
+    setTimeout(finish, reduced ? 2600 : 3600);
+  });
+}
+let cardDone = null;
+
+function playerSheetRows(k) {
+  const list = Object.keys(S0.own).map(Number).filter(i => S0.own[i].o === k);
+  if (!list.length) return '<p class="sub" style="margin:0">Belum punya properti.</p>';
+  return list.map(i => {
+    const t = T[i], o = S0.own[i], col = t.g ? GROUPS[t.g].c : '#2a1d12';
+    const lvl = t.k !== 'city' ? '' : o.lv === LANDMARK_LV ? LANDMARKS[i][0] : LEVEL_NAMES[o.lv];
+    return `<div class="prow"><span class="sw" style="background:${col}"></span><span>${esc(t.n)}</span><em>${lvl} · sewa ${t.k === 'util' ? (UTILS.filter(j => S0.own[j] && S0.own[j].o === k).length === 2 ? '10×' : '4×') + ' dadu' : fmt(rentOf(S0, i))}</em></div>`;
+  }).join('');
+}
+let endConfirm = false;
+function openMenu(view = 'main') {
+  if (!S0) return;
+  if (view === 'main') {
+    endConfirm = false;
+    openModal(`<div class="sheet"><h2>Menu</h2><p class="sub">${mode === 'online' ? 'Room ' + esc(roomCode || '') : 'Main berdua di satu perangkat'}</p><div class="menu-list">
+      <button class="btn ghost" data-act="mProps">Properti kita</button>
+      <button class="btn ghost" data-act="mLog">Riwayat permainan</button>
+      <button class="btn ghost" data-act="mRules">Cara main</button>
+      <button class="btn ghost" data-act="mSound">Suara: ${soundOn ? 'nyala' : 'mati'}</button>
+      ${S0.phase !== 'over' ? '<button class="btn gold" data-act="mEnd">Akhiri &amp; hitung kekayaan</button>' : ''}
+      <button class="btn ghost" data-act="mExit">Kembali ke menu utama</button>
+      <button class="btn" data-act="close">Tutup</button></div></div>`);
+  } else if (view === 'props') {
+    openModal(`<div class="sheet"><h2>Properti</h2><div class="plist">${[0, 1].map(k => `<div><h3 style="--c:${colorHex(S0.players[k].color)}"><i></i>${esc(S0.players[k].name)} · kekayaan ${fmt(worth(S0, k))}</h3>${playerSheetRows(k)}</div>`).join('')}</div>
+      <div class="actions"><button class="btn" data-act="close">Tutup</button></div></div>`);
+  } else if (view === 'log') {
+    openModal(`<div class="sheet"><h2>Riwayat</h2><div class="log">${S0.log.map(l => `<p>${esc(l)}</p>`).join('')}</div><div class="actions"><button class="btn" data-act="close">Tutup</button></div></div>`);
+  } else if (view === 'rules') openModal(`<div class="sheet"><h2>Cara main</h2>${RULES_HTML}<div class="actions"><button class="btn" data-act="close">Tutup</button></div></div>`);
+}
+const RULES_HTML = `<div class="rules">
+  <h3>Dadu</h3><p>Pilih Ganjil, Genap, atau Bebas. Tahan tombol merah, jarum bergerak dari angka kecil ke besar. Lepas saat jarum di posisi yang kamu mau. Pilihan Ganjil atau Genap selalu dituruti. Besar-kecilnya angka cenderung mengikuti posisi jarum, tapi tidak selalu tepat.</p>
+  <h3>Kota</h3><p>Mendarat di tanah kosong: boleh beli. Mendarat di tanah lawan: bayar sewa. Punya satu set warna lengkap: sewa tanah jadi dua kali lipat.</p>
+  <h3>Bangun</h3><p>Saat membeli kota atau mendarat lagi di kotamu, kamu boleh langsung membangun sampai Rumah, Vila, atau Hotel sekaligus. Setelah kotamu sudah Hotel, kunjungan berikutnya membuka Landmark khas daerah itu (Monas di Jakarta, Gedung Sate di Bandung, Rumah Gadang di Padang, dan lainnya).</p>
+  <h3>Kembar</h3><p>Dadu kembar: main lagi. Kembar 3 kali berturut-turut: masuk penjara.</p>
+  <h3>Penjara</h3><p>Keluar dengan bayar ${fmt(JAIL_FINE)}, pakai Kartu Bebas Penjara, atau lempar dadu kembar (maksimal 3 percobaan).</p>
+  <h3>Bebas Parkir</h3><p>Semua pajak, denda, dan biaya kartu masuk ke kas. Siapa yang berhenti di Bebas Parkir mengambil semuanya.</p>
+  <h3>Menang</h3><p>Lawan bangkrut, atau akhiri permainan kapan saja dan bandingkan total kekayaan.</p></div>`;
+function openOver() {
+  const w = S0.winner, sc = [0, 1].map(k => ({ k, n:S0.players[k].name, v:worth(S0, k) }));
+  const title = w < 0 ? 'Seri!' : `${esc(S0.players[w].name)} menang!`;
+  openModal(`<div class="sheet win"><div class="crown">✦ JURAGAN NUSANTARA ✦</div><h2>${title}</h2><p class="sub">${esc(S0.endWhy || '')}</p>
+    <div class="scores">${sc.map(s => `<div><span>${esc(s.n)}</span><span>${fmt(s.v)}</span></div>`).join('')}</div>
+    <div class="actions"><button class="btn ghost" data-act="mExit">Menu utama</button><button class="btn red" data-act="again">Main lagi</button></div></div>`);
+}
+
+function renderUI() {
+  renderHUD();
+  renderDock();
+  if (!playing && S0 && S0.phase === 'over' && $('#modal').hidden) openOver();
+  requestAnimationFrame(layout);
+}
+
+/* ---- Commit langkah ---- */
+async function commit(ns) {
+  if (!ns) return;
+  if (mode === 'local') { lsSet('mn_local', JSON.stringify(ns)); receive(ns); return; }
+  if (!roomRef) return;
+  busy = true; renderDock();
+  try { await roomRef.set(ns); }
+  catch (e) { toast('Langkah gagal terkirim. Cek koneksi lalu coba lagi.'); }
+  busy = false; renderDock();
+}
+
+/* ---- Event ---- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act],[data-pref]');
+  if (!b) { if (e.target.id === 'modal' && cardDone) { cardDone(); cardDone = null; } return; }
+  if (b.dataset.pref) {
+    // ketuk sekali untuk memilih, ketuk lagi untuk membatalkan (kembali bebas)
+    pref = pref === b.dataset.pref ? 'bebas' : b.dataset.pref; lsSet('mn_pref', pref);
+    document.querySelectorAll('[data-pref]').forEach(x => x.setAttribute('aria-pressed', x.dataset.pref === pref));
+    tone(pref === 'bebas' ? 440 : 880, .06, 'triangle', .06);
+    return;
+  }
+  const a = b.dataset.act;
+  if (a.startsWith('l:')) return lobbyAct(a.slice(2), b);
+  switch (a) {
+    case 'tier': selTier = +b.dataset.lv; openDecision(); break;
+    case 'buyYes': closeModal(true); commit(actBuy(S0, true, selTier)); break;
+    case 'buyNo': closeModal(true); commit(actBuy(S0, false)); break;
+    case 'buildYes': closeModal(true); commit(actBuild(S0, true, selTier)); break;
+    case 'buildNo': closeModal(true); commit(actBuild(S0, false)); break;
+    case 'reopen': openDecision(); break;
+    case 'jailPay': if (myTurn() && !playing) commit(actJailPay(S0)); break;
+    case 'jailCard': if (myTurn() && !playing) commit(actJailCard(S0)); break;
+    case 'cardOk': if (cardDone) { cardDone(); cardDone = null; } break;
+    case 'close': closeModal(true); renderDock(); break;
+    case 'mProps': openMenu('props'); break;
+    case 'mLog': openMenu('log'); break;
+    case 'mRules': openMenu('rules'); break;
+    case 'mSound': soundOn = !soundOn; lsSet('mn_sound', soundOn ? '1' : '0'); openMenu('main'); break;
+    case 'mEnd':
+      if (!endConfirm) { endConfirm = true; b.textContent = 'Yakin? Ketuk sekali lagi'; break; }
+      closeModal(true); if (!playing) commit(actEndGame(S0)); break;
+    case 'mExit': closeModal(true); exitToLobby(); break;
+    case 'again': closeModal(true); commit(newGame(S0.players, S0.seq + 1)); break;
+  }
+});
+$('#btnMenu').addEventListener('click', () => openMenu('main'));
+$('#btnCam').addEventListener('click', () => { camGoal.set(0, 0, 0); resetCam(false); });
+$('#dock').addEventListener('pointerdown', e => { if (e.target.closest('#rollBtn')) { e.preventDefault(); try { e.target.setPointerCapture(e.pointerId); } catch (_) {} startHold(); } });
+addEventListener('pointerup', () => endHold(false));
+addEventListener('pointercancel', () => endHold(true));
+$('#dock').addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && $('#modal').hidden && $('#lobby').hidden) { e.preventDefault(); startHold(); } });
+addEventListener('keyup', e => { if (e.code === 'Space') endHold(false); });
+
+/* =========================================================
+   LOBBY & ONLINE
+   ========================================================= */
+let lobbyView = 'home', lobbyErr = '';
+const prefs = { name:lsGet('mn_name') || '', color:lsGet('mn_color') || 'merah', name2:lsGet('mn_name2') || '', color2:lsGet('mn_color2') || 'biru' };
+let onlineState = 'checking'; // checking | ready | off
+let pendingRoom = null;
+
+function swatches(key, taken) {
+  return `<div class="swatches" role="radiogroup">${COLORS.map(c => `<button role="radio" aria-label="${c.name}" style="--c:${c.hex}" aria-checked="${prefs[key] === c.id}" ${taken === c.id ? 'disabled' : ''} data-act="l:color" data-key="${key}" data-c="${c.id}"></button>`).join('')}</div>`;
+}
+function renderLobby() {
+  const L = $('#lobby');
+  if (lobbyView === 'none') { L.hidden = true; return; }
+  L.hidden = false;
+  const logo = `<div class="logo"><span class="l1">MONOPOLI</span><span class="l2">NUSANTARA</span></div>`;
+  const err = lobbyErr ? `<p class="err">${esc(lobbyErr)}</p>` : '';
+  let h = '';
+  if (lobbyView === 'home') {
+    const savedLocal = lsGet('mn_local'), savedRoom = lsGet('mn_room');
+    const onBtn = onlineState === 'ready';
+    h = `${logo}<p class="tag">Papan klasik masa kecil dengan kota-kota Indonesia. Dadunya pakai bar ala Let's Get Rich.</p>
+      ${savedLocal ? `<button class="ticket" data-act="l:resumeLocal"><b>Lanjutkan permainan</b><span>Di perangkat ini, dari langkah terakhir</span></button>` : ''}
+      ${savedRoom && onBtn ? `<button class="ticket" data-act="l:resumeRoom"><b>Kembali ke room ${esc(savedRoom)}</b><span>Lanjutkan permainan online</span></button>` : ''}
+      <button class="ticket primary" data-act="l:goOnline" ${onBtn ? '' : 'disabled'}><b>Main online</b><span>Masing-masing pakai HP sendiri</span></button>
+      <button class="ticket" data-act="l:goLocal"><b>Main berdua di satu HP</b><span>Gantian pegang perangkat</span></button>
+      <p class="note">${onlineState === 'checking' ? 'Memeriksa mode online…' : onlineState === 'off' ? 'Mode online hanya berjalan saat halaman ini dibuka di claude.ai dengan akun yang sudah masuk.' : 'Mode online: kalian berdua membuka link halaman ini dari akun claude.ai masing-masing.'}</p>`;
+  } else if (lobbyView === 'local') {
+    h = `${logo}<div class="panel"><h3>Pemain 1</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color', prefs.color2)}</div>
+      <div class="panel"><h3>Pemain 2</h3><input type="text" id="inName2" maxlength="14" placeholder="Nama pasangan" value="${esc(prefs.name2)}">${swatches('color2', prefs.color)}</div>
+      ${err}<button class="ticket primary" data-act="l:startLocal"><b>Mulai main</b><span>Uang awal ${fmt(START_MONEY)} per orang</span></button>
+      <button class="back" data-act="l:home">← Kembali</button>`;
+  } else if (lobbyView === 'online') {
+    h = `${logo}<div class="panel"><h3>Kamu</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color')}</div>
+      ${err}<button class="ticket primary" data-act="l:create"><b>Buat room baru</b><span>Dapat kode 4 huruf untuk pasanganmu</span></button>
+      <div class="panel"><h3>Punya kode dari pasangan?</h3><div class="row"><input type="text" id="inCode" maxlength="4" placeholder="KODE" style="text-transform:uppercase;letter-spacing:.2em;text-align:center"><button class="btn red" data-act="l:join" style="flex:0 0 auto">Gabung</button></div></div>
+      <button class="back" data-act="l:home">← Kembali</button>`;
+  } else if (lobbyView === 'waiting') {
+    h = `${logo}<div class="panel" style="text-align:center"><h3>KODE ROOM</h3><div class="code" id="codeTxt">${esc(roomCode)}</div>
+      <p class="sub" style="margin:0;font-size:13px;color:var(--ink-2)">Minta pasanganmu membuka halaman ini, pilih <b>Main online</b>, lalu masukkan kode ini.</p>
+      <button class="btn ghost" data-act="l:copy">Salin kode</button>
+      <div class="wait" style="justify-content:center"><span class="dots"><i></i><i></i><i></i></span> Menunggu pasangan bergabung…</div></div>
+      <button class="back" data-act="l:leave">← Batalkan</button>`;
+  } else if (lobbyView === 'takeover') {
+    const st = pendingRoom;
+    h = `${logo}<div class="panel"><h3>Room ${esc(roomCode)} sudah penuh</h3><p class="sub" style="margin:0;color:var(--ink-2)">Kalau kamu salah satu pemainnya tapi ganti perangkat, pilih namamu untuk melanjutkan.</p>
+      ${st.players.map((p, k) => `<button class="btn ghost" data-act="l:take" data-k="${k}">Saya ${esc(p.name)}</button>`).join('')}</div>
+      <button class="back" data-act="l:home">← Kembali</button>`;
+  }
+  L.innerHTML = `<div class="lob">${h}</div>`;
+  controls.autoRotate = true; controls.autoRotateSpeed = .6;
+}
+function readName(id, fallback) { const el = $(id); const v = (el && el.value || '').trim().slice(0, 14); return v || fallback; }
+function genCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 4; i++) s += A[Math.floor(Math.random() * A.length)]; return s; }
+
+function enterGame() {
+  lobbyView = 'none'; renderLobby();
+  controls.autoRotate = false;
+  camGoal.set(0, 0, 0);
+  renderUI(); layout(); resetCam(false);
+}
+function exitToLobby() {
+  if (unsub) { unsub(); unsub = null; }
+  roomRef = null; mode = null; S0 = null; shownSeq = -1; queue.length = 0;
+  pawns.forEach(p => p.visible = false); dice.forEach(d => d.visible = false);
+  for (const k in markers) setOwner(+k, -1, 0, []);
+  lobbyView = 'home'; lobbyErr = '';
+  renderLobby(); renderUI();
+}
+
+async function lobbyAct(a, b) {
+  ac();
+  lobbyErr = '';
+  const keepName = () => { const n = $('#inName'); if (n) { prefs.name = n.value.trim(); lsSet('mn_name', prefs.name); } const n2 = $('#inName2'); if (n2) { prefs.name2 = n2.value.trim(); lsSet('mn_name2', prefs.name2); } };
+  switch (a) {
+    case 'home': lobbyView = 'home'; renderLobby(); break;
+    case 'goLocal': lobbyView = 'local'; renderLobby(); break;
+    case 'goOnline': lobbyView = 'online'; renderLobby(); break;
+    case 'color': keepName(); prefs[b.dataset.key] = b.dataset.c; lsSet('mn_' + b.dataset.key, b.dataset.c); renderLobby(); break;
+    case 'startLocal': {
+      keepName();
+      if (prefs.color === prefs.color2) { lobbyErr = 'Pilih warna pion yang berbeda.'; renderLobby(); return; }
+      mode = 'local';
+      const st = newGame([{ id:'p0', name:prefs.name || 'Pemain 1', color:prefs.color }, { id:'p1', name:prefs.name2 || 'Pemain 2', color:prefs.color2 }], 1);
+      lsSet('mn_local', JSON.stringify(st));
+      S0 = null; shownSeq = -1; enterGame(); receive(st); break;
+    }
+    case 'resumeLocal': {
+      try { const st = JSON.parse(lsGet('mn_local')); mode = 'local'; S0 = null; shownSeq = -1; enterGame(); receive(st); }
+      catch (e) { lsDel('mn_local'); renderLobby(); }
+      break;
+    }
+    case 'create': {
+      keepName();
+      if (!DB) return;
+      const code = genCode();
+      const st = { v:1, seq:1, phase:'lobby', players:[{ id:myId, name:prefs.name || 'Pemain 1', color:prefs.color }], fx:[], log:[] };
+      try { await DB.doc('rooms/' + code).set(st); }
+      catch (e) { lobbyErr = 'Room gagal dibuat. Pastikan kamu masuk ke claude.ai dan punya akses edit.'; renderLobby(); return; }
+      roomCode = code; lsSet('mn_room', code); attachRoom(code);
+      lobbyView = 'waiting'; renderLobby(); break;
+    }
+    case 'join': {
+      keepName();
+      const code = (($('#inCode') || {}).value || '').trim().toUpperCase();
+      if (code.length !== 4) { lobbyErr = 'Kode room terdiri dari 4 huruf.'; renderLobby(); return; }
+      await joinRoom(code); break;
+    }
+    case 'resumeRoom': await joinRoom(lsGet('mn_room')); break;
+    case 'copy': {
+      try { await navigator.clipboard.writeText(roomCode); b.textContent = 'Tersalin!'; }
+      catch (e) { const r = document.createRange(); r.selectNodeContents($('#codeTxt')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Kode sudah diblok, salin manual'; }
+      break;
+    }
+    case 'leave': if (unsub) { unsub(); unsub = null; } lsDel('mn_room'); roomRef = null; lobbyView = 'home'; renderLobby(); break;
+    case 'take': {
+      const k = +b.dataset.k, st = begin(pendingRoom);
+      st.players[k].id = myId;
+      try { await DB.doc('rooms/' + roomCode).set(st); lsSet('mn_room', roomCode); attachRoom(roomCode); }
+      catch (e) { lobbyErr = 'Gagal masuk ke room.'; renderLobby(); }
+      break;
+    }
+  }
+}
+async function joinRoom(code) {
+  if (!DB || !code) return;
+  let snap;
+  try { snap = await DB.doc('rooms/' + code).get(); }
+  catch (e) { lobbyErr = 'Tidak bisa terhubung. Coba lagi sebentar.'; lobbyView = 'online'; renderLobby(); return; }
+  if (!snap.exists) { lobbyErr = `Room ${code} tidak ditemukan.`; if (lsGet('mn_room') === code) lsDel('mn_room'); lobbyView = 'online'; renderLobby(); return; }
+  const st = JSON.parse(JSON.stringify(snap.data()));
+  roomCode = code;
+  if (st.phase === 'lobby') {
+    if (st.players[0].id === myId) { lsSet('mn_room', code); attachRoom(code); lobbyView = 'waiting'; renderLobby(); return; }
+    let color = prefs.color;
+    if (color === st.players[0].color) color = COLORS.find(c => c.id !== st.players[0].color).id;
+    const game = newGame([st.players[0], { id:myId, name:prefs.name || 'Pemain 2', color }], st.seq + 1);
+    try { await DB.doc('rooms/' + code).set(game); }
+    catch (e) { lobbyErr = 'Gagal bergabung. Pastikan kamu punya akses edit ke halaman ini.'; lobbyView = 'online'; renderLobby(); return; }
+    lsSet('mn_room', code); attachRoom(code); return;
+  }
+  if (st.players.some(p => p.id === myId)) { lsSet('mn_room', code); attachRoom(code); return; }
+  pendingRoom = st; lobbyView = 'takeover'; renderLobby();
+}
+function attachRoom(code) {
+  if (unsub) unsub();
+  mode = 'online'; S0 = null; shownSeq = -1; queue.length = 0;
+  roomRef = DB.doc('rooms/' + code);
+  unsub = roomRef.onSnapshot(snap => {
+    if (!snap.exists) return;
+    const st = JSON.parse(JSON.stringify(snap.data()));
+    if (st.phase === 'lobby') { if (lobbyView !== 'waiting') { lobbyView = 'waiting'; renderLobby(); } return; }
+    if (lobbyView !== 'none') enterGame();
+    receive(st);
+  }, () => toast('Koneksi ke room terputus. Muat ulang halaman.'));
+}
+
+async function initOnline() {
+  let tries = 0;
+  while (!(window.claude && window.claude.use) && tries < 15) { await sleep(200); tries++; }
+  try { DB = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch (e) { DB = null; }
+  onlineState = DB ? 'ready' : 'off';
+  if (lobbyView === 'home') renderLobby();
+}
+
+/* ---- Mulai ---- */
+renderLobby();
+layout(); resetCam(true);
+requestAnimationFrame(frame);
+initOnline();
+})();
+</script>
+
+</html>
