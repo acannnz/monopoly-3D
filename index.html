@@ -121,6 +121,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .lgr.idle .pill[aria-pressed="true"]{opacity:.85}
 .lgr.idle .roll.round:disabled{filter:saturate(.55) brightness(.85)}
 .pill:disabled{cursor:default}
+.pill{position:relative}
+.pill .qb{position:absolute;top:-7px;right:-4px;width:20px;height:20px;border-radius:50%;background:var(--emas);color:var(--ink);font-style:normal;font-family:var(--font-body);font-weight:800;font-size:11px;display:grid;place-items:center;box-shadow:0 0 0 2px var(--paper),0 2px 4px #0005}
 #arcKnob circle:first-child{transform-box:fill-box;transform-origin:center}
 #arcKnob.pulse circle:first-child{animation:knob .62s ease-out}
 @keyframes knob{0%{transform:scale(1)}35%{transform:scale(1.7);fill:#ffd56b}100%{transform:scale(1)}}
@@ -444,7 +446,8 @@ function shuffle(n) {
 function newGame(players, seq) {
   return {
     v:1, seq, phase:'roll', turn:0,
-    players: players.map(p => ({ id:p.id, name:p.name, color:p.color, money:START_MONEY, pos:0, jail:0, free:0, out:false })),
+    // par = kuota Ganjil/Genap (0 atau 1), terisi lagi setiap melewati START
+    players: players.map(p => ({ id:p.id, name:p.name, color:p.color, money:START_MONEY, pos:0, jail:0, free:0, out:false, par:1 })),
     own:{}, pot:0, deck:{ ch:shuffle(CH.length), cc:shuffle(CC.length), chI:0, ccI:0 },
     again:false, dbl:0, pending:null, lastDice:7, winner:null, endWhy:null,
     log:['Permainan dimulai. Semoga beruntung!'], fx:[],
@@ -491,14 +494,22 @@ function moveBy(s, pi, steps) {
     pl.money += SALARY;
     s.fx.push({ t:'gain', p:pi, amt:SALARY, why:'Gaji lewat START' });
     log(s, `${pl.name} melewati START, terima ${fmt(SALARY)}.`);
+    refillParity(s, pi);
   }
+}
+// kuota Ganjil/Genap: maksimal 1, terisi lagi saat melewati START
+const parityOf = pl => pl.par == null ? 1 : pl.par;   // permainan lama belum punya kolom ini
+function refillParity(s, pi) {
+  const pl = s.players[pi];
+  if (parityOf(pl) < 1) { pl.par = 1; s.fx.push({ t:'msg', text:'Kuota Ganjil/Genap terisi lagi!' }); }
+  else pl.par = 1;
 }
 // pindah langsung (terbang) tanpa melewati START; mendarat tepat di START tetap dapat gaji
 function flyTo(s, pi, dest) {
   const pl = s.players[pi];
   s.fx.push({ t:'fly', p:pi, from:pl.pos, to:dest });
   pl.pos = dest;
-  if (dest === 0) { pl.money += SALARY; s.fx.push({ t:'gain', p:pi, amt:SALARY, why:'Gaji START' }); }
+  if (dest === 0) { pl.money += SALARY; s.fx.push({ t:'gain', p:pi, amt:SALARY, why:'Gaji START' }); refillParity(s, pi); }
 }
 // kota milik pemain yang tingkatnya paling tinggi maxLv
 const ownCities = (s, pi, maxLv) => Object.keys(s.own).map(Number).filter(i => s.own[i].o === pi && T[i].k === 'city' && s.own[i].lv <= maxLv);
@@ -748,6 +759,11 @@ function actPayBill(s0) {
 
 function actRoll(s0, pref, p) {
   const s = begin(s0), pi = s.turn, pl = s.players[pi];
+  // memilih Ganjil/Genap memakai 1 kuota; tanpa kuota, lemparan otomatis Bebas
+  if (pref === 'ganjil' || pref === 'genap') {
+    if (parityOf(pl) > 0) { pl.par = 0; log(s, `${pl.name} memakai kuota ${pref === 'ganjil' ? 'Ganjil' : 'Genap'}.`); }
+    else pref = 'bebas';
+  } else pref = 'bebas';
   const r = rollDice(pref, p), [a, b] = r.d, sum = a + b;
   s.lastDice = sum;
   s.fx.push({ t:'dice', d:r.d, target:Math.round(r.target), pref, p:pi, g:p });
@@ -2094,7 +2110,7 @@ async function playFx(list, st) {
 function chipHTML(st, k) {
   const p = st.players[k], props = Object.values(st.own).filter(o => o.o === k).length;
   const meTag = mode === 'online' && p.id === myId ? '<span class="me">KAMU</span>' : '';
-  const meta = [`${props} properti`, p.free ? `${p.free} kartu bebas` : '', p.jail > 0 ? 'di penjara' : ''].filter(Boolean).join(' · ');
+  const meta = [`${props} properti`, parityOf(p) ? 'kuota G/G 1' : 'kuota G/G 0', p.free ? `${p.free} kartu bebas` : '', p.jail > 0 ? 'di penjara' : ''].filter(Boolean).join(' · ');
   return `<span class="tok"></span><div class="info"><span class="nm">${k === 1 ? meTag : ''}${esc(p.name)}${k === 0 ? meTag : ''}</span>
     <span class="money" id="money${k}">${fmt(shownMoney[k])}</span><span class="meta">${meta}</span></div>`;
 }
@@ -2174,7 +2190,9 @@ function renderDock() {
   } else if (deciding) status = `Giliran ${esc(p.name)} · putuskan di kartu`;
   else status = `Giliran ${esc(p.name)}${inJail ? ' · butuh dadu kembar' : ''}`;
   // bar tetap tampil di semua keadaan; saat bukan waktunya melempar, jarum membeku di posisi lemparan terakhir
-  const showPref = canRoll ? pref : (shownPref || 'bebas');
+  const quota = parityOf(p), canPar = canRoll && quota > 0;
+  const showPref = canRoll ? (quota ? pref : 'bebas') : (shownPref || 'bebas');
+  const qb = canPar ? '<i class="qb" aria-label="1 kuota">1</i>' : '';
   const center = canRoll ? (inJail ? 'COBA<br>KEMBAR' : 'LEMPAR')
     : deciding ? (S0.phase === 'travel' ? 'PILIH<br>TUJUAN' : S0.phase === 'startUp' ? 'PILIH<br>TANAH' : 'LIHAT<br>KARTU')
     : '<span class="dots light"><i></i><i></i><i></i></span>';
@@ -2192,11 +2210,13 @@ function renderDock() {
         <g id="arcKnob"><circle r="14" fill="#fff" stroke="#2a1d12" stroke-width="4"/><circle r="5" fill="#2a1d12"/></g>
       </svg>
       <div class="lgr-row">
-        <button class="pill" data-pref="ganjil" aria-pressed="${showPref === 'ganjil'}" ${canRoll ? '' : 'disabled'}>GANJIL</button>
+        <button class="pill" data-pref="ganjil" aria-pressed="${showPref === 'ganjil'}" ${canPar ? '' : 'disabled'}>GANJIL${qb}</button>
         <button class="roll round" id="rollBtn" ${deciding ? 'data-act="reopen"' : ''} ${canRoll || deciding ? '' : 'disabled'}>${center}</button>
-        <button class="pill" data-pref="genap" aria-pressed="${showPref === 'genap'}" ${canRoll ? '' : 'disabled'}>GENAP</button>
+        <button class="pill" data-pref="genap" aria-pressed="${showPref === 'genap'}" ${canPar ? '' : 'disabled'}>GENAP${qb}</button>
       </div>
-      ${canRoll ? '<div class="lgr-hint">Tahan tombol, jarum naik turun. Lepas saat kamu yakin.</div>' : ''}
+      ${canRoll ? `<div class="lgr-hint">${quota
+        ? 'Kuota Ganjil/Genap: 1 (boleh dilewati). Tahan tombol, lepas saat kamu yakin.'
+        : 'Kuota Ganjil/Genap habis. Isi lagi dengan melewati START.'}</div>` : ''}
     </div></div>`;
   drawArcTicks();
   setGauge(gaugeP);
@@ -2247,8 +2267,11 @@ function endHold(cancel) {
   holding = false; cancelAnimationFrame(holdRAF);
   if (cancel) { renderDock(); return; }
   const p = gaugeP;
-  shownPref = pref;
-  commit(actRoll(S0, pref, p));
+  // tanpa kuota selalu Bebas; setelah kuota dipakai, pilihan kembali ke Bebas supaya kuota berikutnya tidak terpakai tanpa sengaja
+  const use = parityOf(S0.players[S0.turn]) > 0 ? pref : 'bebas';
+  shownPref = use;
+  commit(actRoll(S0, use, p));
+  if (use !== 'bebas') { pref = 'bebas'; lsSet('mn_pref', pref); }
 }
 
 /* ---- Modal ---- */
@@ -2418,6 +2441,7 @@ function openMenu(view = 'main') {
 }
 const RULES_HTML = `<div class="rules">
   <h3>Dadu</h3><p>Pilih Ganjil, Genap, atau Bebas. Tahan tombol merah, jarum bergerak dari angka kecil ke besar. Lepas saat jarum di posisi yang kamu mau. Pilihan Ganjil atau Genap selalu dituruti. Besar-kecilnya angka cenderung mengikuti posisi jarum, tapi tidak selalu tepat.</p>
+  <h3>Kuota Ganjil/Genap</h3><p>Memilih Ganjil atau Genap memakai 1 kuota (satu kuota untuk keduanya). Kuota paling banyak 1, tidak bisa ditumpuk, dan terisi lagi setiap melewati START. Setiap pemain mulai dengan 1 kuota. Tanpa kuota, lemparan otomatis Bebas.</p>
   <h3>Kota</h3><p>Mendarat di tanah kosong: boleh beli. Mendarat di tanah lawan: bayar sewa. Punya satu set warna lengkap: sewa tanah jadi dua kali lipat.</p>
   <h3>Bangun</h3><p>Semua ada tahapannya. Kunjungan pertama hanya bisa membeli tanah. Saat mampir lagi ke tanahmu, kamu boleh membangun Rumah, Vila, atau Hotel (1, 2, atau 3 tingkat sekaligus). Setelah sudah Hotel, kunjungan berikutnya membuka Landmark khas daerah itu (Monas di Jakarta, Gedung Sate di Bandung, Rumah Gadang di Padang, dan lainnya).</p>
   <h3>Kembar</h3><p>Dadu kembar: main lagi. Kembar 3 kali berturut-turut: masuk penjara.</p>
