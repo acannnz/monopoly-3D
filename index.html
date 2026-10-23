@@ -2260,7 +2260,13 @@ function renderDock() {
     status = `Menunggu ${esc(p.name)} ${esc(what)}…`;
   } else if (deciding) status = `Giliran ${esc(p.name)} · putuskan di kartu`;
   else status = `Giliran ${esc(p.name)}${inJail ? ' · butuh dadu kembar' : ''}`;
-  // bar tetap tampil di semua keadaan; saat bukan waktunya melempar, jarum membeku di posisi lemparan terakhir
+  // HP pemain yang sedang menunggu: cukup kapsul status, tanpa bar dadu, supaya papan tidak terhalang
+  if (!mine) {
+    dock.innerHTML = `<div class="dcard clear"><div class="dpill" style="--c:${c}"><i></i><span>${status}</span></div></div>`;
+    if (free && (S0.phase === 'roll' || inJail)) showSteps(p.pos); else if (free) hideSteps();
+    return;
+  }
+  // di HP pemain yang sedang giliran, bar tetap tampil; saat pion berjalan, jarum membeku di posisi lemparan terakhir
   const quota = parityOf(p), canPar = canRoll && quota > 0;
   const showPref = canRoll ? (quota ? pref : 'bebas') : (shownPref || 'bebas');
   const qb = canPar ? '<i class="qb" aria-label="1 kuota">1</i>' : '';
