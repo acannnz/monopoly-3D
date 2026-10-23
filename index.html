@@ -52,6 +52,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .iconrow{display:flex;gap:6px}
 .ibtn{width:36px;height:36px;border-radius:11px;border:0;background:var(--teak-3);color:var(--paper);display:grid;place-items:center;box-shadow:inset 0 -2px 0 #0005}
 .ibtn svg{width:18px;height:18px}
+.ibtn.music .slash{display:none}
+.ibtn.music[aria-pressed="false"]{color:var(--paper-3);opacity:.75}
+.ibtn.music[aria-pressed="false"] .slash{display:inline}
+.musictoggle{align-self:center;background:none;border:1.5px solid #f6ebcf55;color:var(--paper-2);border-radius:999px;padding:6px 14px;font-weight:700;font-size:12.5px}
 .pot{font-size:10.5px;font-weight:700;color:var(--paper-3);text-align:center;line-height:1.2;max-width:96px}
 .pot b{display:block;font-family:var(--font-display);font-weight:400;font-size:13px;color:var(--emas)}
 
@@ -237,6 +241,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
     <div class="mid">
       <div class="iconrow">
         <button class="ibtn" id="btnCam" aria-label="Atur ulang kamera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+        <button class="ibtn music" data-music aria-pressed="true" aria-label="Musik latar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path class="slash" d="M3 3l18 18"/></svg></button>
         <button class="ibtn" id="btnMenu" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
       <div class="pot" id="pot"></div>
@@ -662,42 +667,196 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let soundOn = lsGet('mn_sound') !== '0';
-let AC = null;
-function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return AC; }
-function tone(f, d = .1, type = 'sine', vol = .12, when = 0) {
-  if (!soundOn) return; const a = ac(); if (!a) return;
+/* ---------- Audio: semua bunyi dibuat langsung dengan Web Audio (tanpa file) ----------
+   master ─┬─ musicBus (musik latar, bisa "mengecil" saat ada efek besar)
+           └─ sfxBus   (efek suara)                                                    */
+let soundOn = lsGet('mn_sound') !== '0';      // efek suara
+let musicOn = lsGet('mn_music') !== '0';      // musik latar
+let AC = null, master = null, musicBus = null, sfxBus = null;
+const MUSIC_LEVEL = .5;
+function ac() {
+  if (!AC) {
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain(); master.gain.value = .9; master.connect(AC.destination);
+      musicBus = AC.createGain(); musicBus.gain.value = MUSIC_LEVEL; musicBus.connect(master);
+      sfxBus = AC.createGain(); sfxBus.gain.value = 1; sfxBus.connect(master);
+    } catch (e) { AC = null; }
+  }
+  if (AC && AC.state === 'suspended') AC.resume().catch(() => {});
+  return AC;
+}
+const midi = m => 440 * 2 ** ((m - 69) / 12);
+function tone(f, d = .1, type = 'sine', vol = .12, when = 0, bus) {
+  const a = ac(); if (!a || (!bus && !soundOn)) return;
   const t0 = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t0);
   g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
-  o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + d + .02);
+  o.connect(g).connect(bus || sfxBus); o.start(t0); o.stop(t0 + d + .02);
 }
-function noise(d = .05, vol = .2, when = 0, freq = 1800) {
-  if (!soundOn) return; const a = ac(); if (!a) return;
-  const n = Math.floor(a.sampleRate * d), buf = a.createBuffer(1, n, a.sampleRate), ch = buf.getChannelData(0);
-  for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
-  const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-  f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
-  src.buffer = buf; src.connect(f).connect(g).connect(a.destination); src.start(a.currentTime + when);
+// nada meluncur (f1 -> f2), untuk bunyi kayu, kendang, letupan
+function sweep(f1, f2, d, type = 'sine', vol = .1, when = 0, bus) {
+  const a = ac(); if (!a || (!bus && !soundOn)) return;
+  const t0 = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f1, t0); o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(g).connect(bus || sfxBus); o.start(t0); o.stop(t0 + d + .02);
+}
+let noiseBuf = null;
+function noise(d = .05, vol = .2, when = 0, freq = 1800, bus, q = 1) {
+  const a = ac(); if (!a || (!bus && !soundOn)) return;
+  if (!noiseBuf) {
+    noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate);
+    const ch = noiseBuf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+  }
+  const t0 = a.currentTime + when, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  src.buffer = noiseBuf; src.connect(f).connect(g).connect(bus || sfxBus); src.start(t0, Math.random() * .5); src.stop(t0 + d + .02);
+}
+// saron/bonang: nada dasar + nada atas logam yang cepat hilang
+function saron(m, vol = .08, when = 0, bus, decay = .7) {
+  const f = midi(m);
+  tone(f, decay, 'sine', vol, when, bus);
+  tone(f * 2.76, decay * .35, 'sine', vol * .35, when, bus);
+  tone(f * 5.4, decay * .15, 'sine', vol * .15, when, bus);
+  noise(.015, vol * .6, when, 4000, bus);
+}
+// gong: dua nada rendah yang sedikit berbeda sehingga "berdengung"
+function gong(vol = .12, when = 0, bus) {
+  tone(98, 2.6, 'sine', vol, when, bus); tone(99.6, 2.6, 'sine', vol * .8, when, bus);
+  tone(196 * 1.48, 1.2, 'sine', vol * .25, when, bus);
+}
+// kecilkan musik sebentar supaya efek besar terdengar jelas
+function duck(depth = .3, ms = 900) {
+  if (!AC || !musicBus) return;
+  const t = AC.currentTime, g = musicBus.gain;
+  g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+  g.linearRampToValueAtTime(MUSIC_LEVEL * depth, t + .08);
+  g.linearRampToValueAtTime(MUSIC_LEVEL, t + ms / 1000);
 }
 const sfx = {
-  dice: () => { for (let i = 0; i < 5; i++) noise(.04, .25, i * .13 + Math.random() * .05, 1400 + Math.random() * 900); },
-  hop: () => tone(480 + Math.random() * 120, .08, 'triangle', .07),
-  coin: () => { tone(988, .08, 'square', .045); tone(1319, .22, 'square', .045, .08); },
-  build: () => { noise(.12, .35, 0, 300); tone(196, .2, 'triangle', .1); },
-  card: () => { noise(.1, .12, 0, 3000); tone(660, .12, 'sine', .07, .1); },
-  bad: () => { tone(220, .22, 'sawtooth', .05); tone(165, .3, 'sawtooth', .05, .15); },
-  win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .25, 'triangle', .1, i * .12)),
+  click: () => tone(880, .05, 'triangle', .035),
   tick: () => tone(1200, .03, 'square', .02),
+  // dadu berguling: rentetan "klotak" yang makin jarang
+  dice: () => {
+    let t = 0;
+    for (let i = 0; i < 9; i++) {
+      noise(.035, .28 - i * .02, t, 1800 + Math.random() * 1600, null, 3);
+      tone(900 + Math.random() * 500, .03, 'square', .015, t);
+      t += .05 + i * .025;
+    }
+  },
+  // langkah pion: bunyi kayu "tok"
+  hop: () => { sweep(620 + Math.random() * 80, 300, .08, 'sine', .11); noise(.025, .08, 0, 2600, null, 4); },
+  coin: () => { tone(988, .08, 'square', .04); tone(1319, .22, 'square', .04, .08); },
+  // terima uang: "cring-cring"
+  gain: () => { tone(1568, .09, 'square', .04); tone(2093, .32, 'square', .04, .08); noise(.25, .05, .08, 7000); duck(.6, 600); },
+  // bayar: tiga nada turun
+  pay: () => { tone(784, .12, 'triangle', .08); tone(587, .12, 'triangle', .08, .1); tone(440, .3, 'triangle', .08, .2); },
+  // tagihan muncul: "uh-oh"
+  bill: () => { tone(392, .18, 'triangle', .09); tone(311, .4, 'triangle', .09, .18); duck(.5, 700); },
+  // beli tanah: laci kasir "ka-ching" lalu stempel
+  buy: () => {
+    noise(.06, .3, 0, 1200, null, 2); tone(1319, .08, 'square', .045, .05); tone(1760, .4, 'square', .045, .12);
+    tone(2637, .3, 'sine', .03, .12); sweep(160, 55, .18, 'sine', .3, .32); noise(.08, .2, .32, 400);
+    duck(.45, 1000);
+  },
+  // bangun: tiga ketukan palu lalu "plop"
+  build: () => {
+    for (let i = 0; i < 3; i++) { noise(.04, .35, i * .13, 900, null, 2); sweep(320, 120, .06, 'sine', .14, i * .13); }
+    sweep(380, 900, .09, 'triangle', .09, .45);
+  },
+  // landmark: gong + arpeggio saron + kilau
+  landmark: () => {
+    duck(.15, 2600);
+    gong(.16, 0);
+    [62, 64, 67, 69, 71, 74, 76, 79].forEach((m, i) => saron(m, .09, .1 + i * .09));
+    for (let i = 0; i < 6; i++) tone(2400 + i * 260, .25, 'sine', .025, .85 + i * .05);
+  },
+  // kartu: kertas berdesir lalu terbalik
+  card: () => {
+    const a = ac(); if (!a || !soundOn) return;
+    const t0 = a.currentTime, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    if (!noiseBuf) noise(.001, 0);
+    f.type = 'bandpass'; f.Q.value = 1.5; f.frequency.setValueAtTime(700, t0); f.frequency.exponentialRampToValueAtTime(4200, t0 + .28);
+    g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.16, t0 + .1); g.gain.exponentialRampToValueAtTime(.0001, t0 + .3);
+    src.buffer = noiseBuf; src.connect(f).connect(g).connect(sfxBus); src.start(t0); src.stop(t0 + .32);
+    tone(660, .14, 'sine', .07, .3); tone(990, .2, 'sine', .05, .36);
+  },
+  // masuk penjara: sirene dua nada + jeruji berdentang
+  jail: () => {
+    duck(.25, 1800);
+    for (let i = 0; i < 4; i++) tone(i % 2 ? 660 : 880, .26, 'sawtooth', .03, i * .26);
+    [523 * 2.7, 523 * 4.1, 523 * 5.9].forEach((f, i) => tone(f, .7, 'sine', .04 / (i + 1), 1.1));
+    noise(.06, .25, 1.1, 2200, null, 2);
+  },
+  // giliranmu tiba: "ding-dong" saron
+  turn: () => { duck(.4, 900); saron(79, .11, 0, null, .9); saron(74, .11, .22, null, 1.1); },
+  win: () => {
+    duck(.1, 3200); gong(.16, 0);
+    [62, 67, 71, 74, 79, 83, 86].forEach((m, i) => saron(m, .1, .12 + i * .11, null, 1));
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, .5, 'triangle', .06, .95 + i * .05));
+  },
   whoosh: () => {
-    if (!soundOn) return; const a = ac(); if (!a) return;
+    const a = ac(); if (!a || !soundOn) return;
     const o = a.createOscillator(), g = a.createGain(), t0 = a.currentTime;
     o.type = 'triangle'; o.frequency.setValueAtTime(220, t0); o.frequency.exponentialRampToValueAtTime(980, t0 + .5);
     g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.09, t0 + .25); g.gain.exponentialRampToValueAtTime(.0001, t0 + .6);
-    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + .62);
+    o.connect(g).connect(sfxBus); o.start(t0); o.stop(t0 + .62);
     noise(.45, .08, .05, 2400);
   },
 };
+
+/* ---------- Musik latar: lagu pendek bergaya gamelan, diputar berulang ----------
+   Tangga nada pentatonis (D E G A B), 108 ketukan per menit, pola A A B A (128 langkah 1/8). */
+const MUSIC = {
+  step:60 / 108 / 2,
+  scale:[62, 64, 67, 69, 71, 74, 76, 79],
+  A:[4,-1,3,-1, 2,-1,3,4, 5,-1,4,-1, 3,-1,-1,-1,  2,-1,1,-1, 0,-1,1,2, 3,-1,2,-1, 1,-1,-1,-1],
+  B:[5,-1,6,-1, 7,-1,6,5, 4,-1,5,-1, 6,-1,-1,-1,  5,-1,4,-1, 3,-1,2,3, 4,-1,1,-1, 0,-1,-1,-1],
+  rootsA:[50, 43, 45, 50], rootsB:[43, 50, 45, 50],
+  order:['A', 'A', 'B', 'A'],
+};
+const musicState = { timer:null, next:0, i:0 };
+function playMusicStep(i, t) {
+  const a = AC, when = t - a.currentTime, bus = musicBus;
+  const ph = MUSIC.order[Math.floor(i / 32) % 4], k = i % 32, bar = Math.floor(k / 8), s = k % 8;
+  const mel = MUSIC[ph][k];
+  if (mel >= 0) saron(MUSIC.scale[mel], .075, when, bus);
+  // bonang: gema satu oktaf di atas, tipis, pada ketukan genap tertentu
+  if (mel >= 0 && s % 4 === 0) saron(MUSIC.scale[mel] + 12, .025, when + MUSIC.step * .5, bus, .4);
+  const root = (ph === 'B' ? MUSIC.rootsB : MUSIC.rootsA)[bar];
+  if (s === 0) tone(midi(root), 1.1, 'sine', .13, when, bus);
+  if (s === 4) tone(midi(root + 7), .8, 'sine', .09, when, bus);
+  // kendang: "dhung" rendah dan "tak" tinggi
+  if (s === 0 || s === 3 || s === 6) sweep(170, 85, .14, 'sine', .11, when, bus);
+  if (s === 2 || s === 5 || s === 7) noise(.04, .05, when, 1900, bus, 2);
+  if (s % 2 === 1) noise(.03, .018, when, 8000, bus);
+  if (k === 0) gong(.07, when, bus);
+}
+function musicStart() {
+  if (!musicOn || musicState.timer || document.hidden) return;
+  const a = ac(); if (!a) return;
+  musicState.next = a.currentTime + .15;
+  musicState.timer = setInterval(() => {
+    if (!AC) return;
+    if (musicState.next < AC.currentTime) musicState.next = AC.currentTime + .05;   // kembali dari jeda, jangan kejar ketinggalan
+    while (musicState.next < AC.currentTime + .3) {
+      playMusicStep(musicState.i, musicState.next);
+      musicState.i = (musicState.i + 1) % 128; musicState.next += MUSIC.step;
+    }
+  }, 60);
+}
+function musicStop() { clearInterval(musicState.timer); musicState.timer = null; }
+function setMusic(on) {
+  musicOn = on; lsSet('mn_music', on ? '1' : '0');
+  if (on) musicStart(); else musicStop();
+  document.querySelectorAll('[data-music]').forEach(el => el.setAttribute('aria-pressed', on));
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) musicStop(); else musicStart(); });
+// browser hanya mengizinkan suara setelah pemain menyentuh layar
+addEventListener('pointerdown', function first() { ac(); musicStart(); removeEventListener('pointerdown', first); });
 
 /* =========================================================
    3D: SCENE, PAPAN, PION, DADU
@@ -1458,7 +1617,7 @@ async function movePawn(pi, from, steps) {
   pawns[pi].scale.set(1, 1, 1);
 }
 async function flyToJail(pi) {
-  sfx.bad();
+  sfx.jail();
   const p = pawns[pi], from = p.position.clone(), to = pawnSpot(10, pi, true);
   followThis(p.position);
   await tween(950, t => {
@@ -1516,7 +1675,7 @@ async function animBuild(i, lv) {
     glowRing.position.set(wp.x, .04, wp.z); glowRing.material.color.set(m.hex);
     jobs.push(tween(900, t => { const s = .3 + t * 2; glowRing.scale.set(s, s, s); glowRing.material.opacity = Math.sin(t * Math.PI) * .9; }));
     jobs.push(coinsFly(new THREE.Vector3(wp.x, 3.2, wp.z), new THREE.Vector3(wp.x, .4, wp.z), 14));
-    sfx.win();
+    sfx.landmark();
   }
   jobs.push(tween(lv === LANDMARK_LV ? 900 : 600, t => b.scale.setScalar(Math.max(.01, E.back(t)))));
   await Promise.all(jobs);
@@ -1647,7 +1806,13 @@ async function pump() {
       closeModal(true);
       try { await playFx(st.fx, st); } catch (e) { console.error(e); }
     }
+    const wasMyTurn = S0 && isMine(S0.turn) && S0.phase !== 'over';
     S0 = st; shownSeq = st.seq;
+    // bunyi "ding-dong" saat giliran berpindah ke pemain di perangkat ini
+    if (animate && st.phase !== 'over' && (st.phase === 'roll' || st.phase === 'jail') && isMine(st.turn) && (mode === 'local' || !wasMyTurn)) {
+      sfx.turn();
+      if (mode === 'online') try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch (e) {}
+    }
     syncAll(st);
     st.players.forEach((p, k) => animMoney(k, p.money));
   }
@@ -1669,12 +1834,14 @@ async function playFx(list, st) {
       case 'move': await movePawn(f.p, f.from, f.steps); break;
       case 'jail': await flyToJail(f.p); toast(`${names[f.p]} masuk penjara!`); await sleep(500); break;
       case 'gain': {
+        sfx.gain();
         const to = pawns[f.p].position.clone(); to.y = .3;
         await coinsFly(f.fromPot ? new THREE.Vector3(0, .3, 0) : new THREE.Vector3(to.x * .3, 3, to.z * .3), to, f.amt >= 150 ? 10 : 6);
         moneyDelta(f.p, f.amt); toast(`${names[f.p]} +${fmt(f.amt)} · ${f.why}`);
         await sleep(350); break;
       }
       case 'pay': {
+        sfx.pay();
         const from = pawns[f.from].position.clone(); from.y = .3;
         const to = f.to >= 0 ? pawns[f.to].position.clone() : new THREE.Vector3(0, .3, 0);
         await coinsFly(from, to, f.amt >= 200 ? 10 : 6);
@@ -1684,6 +1851,7 @@ async function playFx(list, st) {
         await sleep(450); break;
       }
       case 'buy':
+        sfx.buy();
         stamp('DIBELI!', hx[f.p]);
         moneyDelta(f.p, -f.amt);
         await animBuy(f.tile, f.p, hx);
@@ -1904,9 +2072,11 @@ function tierOptions(i) {
   return tiers.map(lv => ({ lv, cost:stepCost(i, from, lv) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
 }
 // Kartu tagihan: sewa ke lawan atau pajak. Pemain melihat rinciannya dulu, lalu menekan Bayar.
+let billSoundFor = -1;
 function openBill() {
   const i = S0.pending, t = T[i], pl = S0.players[S0.turn], b = S0.bill;
   const short = pl.money < b.amt;
+  if (billSoundFor !== S0.seq) { billSoundFor = S0.seq; sfx.bill(); }
   const warn = short ? `<p class="err" style="margin-top:10px">Uangmu kurang ${fmt(b.amt - pl.money)}. Bangunan atau tanahmu akan dijual otomatis untuk menutupnya.</p>` : '';
   const bal = `<div class="bal"><span>Uangmu</span><span>${fmt(pl.money)} → <b>${fmt(Math.max(0, pl.money - b.amt))}</b></span></div>`;
   if (b.to >= 0) {
@@ -1981,7 +2151,8 @@ function openMenu(view = 'main') {
       <button class="btn ghost" data-act="mProps">Properti kita</button>
       <button class="btn ghost" data-act="mLog">Riwayat permainan</button>
       <button class="btn ghost" data-act="mRules">Cara main</button>
-      <button class="btn ghost" data-act="mSound">Suara: ${soundOn ? 'nyala' : 'mati'}</button>
+      <button class="btn ghost" data-act="mMusic">Musik latar: ${musicOn ? 'nyala' : 'mati'}</button>
+      <button class="btn ghost" data-act="mSound">Efek suara: ${soundOn ? 'nyala' : 'mati'}</button>
       ${S0.phase !== 'over' ? '<button class="btn gold" data-act="mEnd">Akhiri &amp; hitung kekayaan</button>' : ''}
       <button class="btn ghost" data-act="mExit">Kembali ke menu utama</button>
       <button class="btn" data-act="close">Tutup</button></div></div>`);
@@ -2028,6 +2199,10 @@ async function commit(ns) {
 
 /* ---- Event ---- */
 document.addEventListener('click', e => {
+  const mb = e.target.closest('[data-music]');
+  if (mb) { setMusic(!musicOn); if (mb.classList.contains('musictoggle')) mb.textContent = `♪ Musik: ${musicOn ? 'nyala' : 'mati'}`; return; }
+  const btn = e.target.closest('button');
+  if (btn && btn.id !== 'rollBtn' && !btn.disabled && !btn.dataset.pref) sfx.click();
   const b = e.target.closest('[data-act],[data-pref]');
   if (!b) { if (e.target.id === 'modal' && cardDone) { cardDone(); cardDone = null; } return; }
   if (b.dataset.pref) {
@@ -2054,7 +2229,8 @@ document.addEventListener('click', e => {
     case 'mProps': openMenu('props'); break;
     case 'mLog': openMenu('log'); break;
     case 'mRules': openMenu('rules'); break;
-    case 'mSound': soundOn = !soundOn; lsSet('mn_sound', soundOn ? '1' : '0'); openMenu('main'); break;
+    case 'mSound': soundOn = !soundOn; lsSet('mn_sound', soundOn ? '1' : '0'); if (soundOn) sfx.click(); openMenu('main'); break;
+    case 'mMusic': setMusic(!musicOn); openMenu('main'); break;
     case 'mEnd':
       if (!endConfirm) { endConfirm = true; b.textContent = 'Yakin? Ketuk sekali lagi'; break; }
       closeModal(true); if (!playing) commit(actEndGame(S0)); break;
@@ -2097,6 +2273,7 @@ function renderLobby() {
       ${savedRoom && onBtn ? `<button class="ticket" data-act="l:resumeRoom"><b>Kembali ke room ${esc(savedRoom)}</b><span>Lanjutkan permainan online</span></button>` : ''}
       <button class="ticket primary" data-act="l:goOnline" ${onBtn ? '' : 'disabled'}><b>Main online</b><span>Masing-masing pakai HP sendiri</span></button>
       <button class="ticket" data-act="l:goLocal"><b>Main berdua di satu HP</b><span>Gantian pegang perangkat</span></button>
+      <button class="musictoggle" data-music aria-pressed="${musicOn}">♪ Musik: ${musicOn ? 'nyala' : 'mati'}</button>
       <p class="note">${onlineState === 'checking' ? 'Memeriksa mode online…'
         : onlineState === 'off' ? 'Mode online belum tersedia di alamat ini. Main berdua di satu HP tetap bisa.'
         : onlineKind === 'server' ? 'Mode online: buka alamat ini di HP masing-masing. Satu orang membuat room, satunya memasukkan kode.'
@@ -2234,14 +2411,14 @@ function attachRoom(code) {
 // Penyimpanan room lewat server WebSocket sendiri (/ws di domain yang sama).
 // Bentuknya meniru db artifact (doc().get/set/onSnapshot) supaya kode lobby & game tidak perlu tahu bedanya.
 function wsDB(url) {
-  let ws = null, open = false, closed = false, nextId = 1;
+  let ws = null, open = false, closed = false, everOpen = false, nextId = 1;
   const pending = {}, subs = {}, outbox = [];
   const opened = new Promise(res => {
     const connect = () => {
       if (closed) return;
-      ws = new WebSocket(url);
+      try { ws = new WebSocket(url); } catch (e) { res(false); return; }
       ws.onopen = () => {
-        open = true; res(true);
+        open = true; everOpen = true; res(true);
         for (const code in subs) ws.send(JSON.stringify({ t:'sub', code }));
         while (outbox.length) ws.send(outbox.shift());
       };
@@ -2254,7 +2431,8 @@ function wsDB(url) {
           subs[m.code]({ exists:m.data != null, data:() => m.data });
         }
       };
-      ws.onclose = () => { open = false; if (!closed) setTimeout(connect, 1500); };
+      // sambung ulang hanya jika sebelumnya pernah tersambung; kalau sejak awal gagal, berarti tidak ada server
+      ws.onclose = () => { open = false; if (!everOpen) { closed = true; res(false); } else if (!closed) setTimeout(connect, 1500); };
     };
     connect();
   });
@@ -2290,17 +2468,18 @@ async function probeWs() {
 }
 let onlineKind = null; // 'artifact' | 'server'
 async function initOnline() {
-  const wsTry = probeWs();
+  // di claude.ai pakai penyimpanan artifact; di domain sendiri baru coba server /ws
   let tries = 0;
   while (!(window.claude && window.claude.use) && tries < 15) { await sleep(200); tries++; }
   try { DB = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch (e) { DB = null; }
-  if (DB) { onlineKind = 'artifact'; wsTry.then(w => w && w.close()); }
-  else { DB = await wsTry; onlineKind = DB ? 'server' : null; }
+  if (DB) onlineKind = 'artifact';
+  else if (!window.claude) { DB = await probeWs(); onlineKind = DB ? 'server' : null; }
   onlineState = DB ? 'ready' : 'off';
   if (lobbyView === 'home') renderLobby();
 }
 
 /* ---- Mulai ---- */
+document.querySelectorAll('[data-music]').forEach(el => el.setAttribute('aria-pressed', musicOn));
 renderLobby();
 layout(); resetCam(true);
 requestAnimationFrame(frame);
