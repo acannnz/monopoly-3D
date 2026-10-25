@@ -55,6 +55,27 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .ibtn.music .slash{display:none}
 .ibtn.music[aria-pressed="false"]{color:var(--paper-3);opacity:.75}
 .ibtn.music[aria-pressed="false"] .slash{display:inline}
+/* ---------- Pilihan dadu ---------- */
+.dicepick{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px;margin:0 -2px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.dicepick button{flex:0 0 132px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px 9px;border-radius:12px;
+  border:2px solid var(--paper-3);background:#fffaf0;color:var(--ink);text-align:center}
+.dicepick button[aria-checked="true"]{border-color:var(--merah);box-shadow:0 0 0 2px var(--merah);background:#fff3ea}
+.dicepick b{font-size:12.5px;font-weight:800;margin-top:4px}
+.dicepick em{font-style:normal;font-size:10.5px;font-weight:600;color:var(--ink-2);min-height:2.4em;line-height:1.2}
+.dst{display:flex;justify-content:space-between;width:100%;font-size:10.5px;font-weight:700;color:var(--ink-2)}
+.dst .st{color:#e0a400;letter-spacing:1px;font-size:11px}
+.dst .st .off{color:#d9ceb3}
+/* dadu mini: muka "5" dengan warna/motif dadu */
+.dmini{--s:34px;width:var(--s);height:var(--s);border-radius:22%;background:var(--f);box-shadow:inset 0 -3px 0 var(--e),0 2px 4px #0003;position:relative;display:inline-block;flex:none}
+.dmini i{position:absolute;width:20%;height:20%;border-radius:50%;background:var(--p)}
+.dmini i:nth-child(1){left:16%;top:16%}.dmini i:nth-child(2){right:16%;top:16%}.dmini i:nth-child(3){left:40%;top:40%;background:var(--o)}
+.dmini i:nth-child(4){left:16%;bottom:16%}.dmini i:nth-child(5){right:16%;bottom:16%}
+.dmini.m-parang{background:repeating-linear-gradient(135deg,var(--f) 0 5px,#3a2c20 5px 7px,var(--f) 7px 10px,#6a4a1c 10px 11px)}
+.dmini.m-kayu{background:repeating-linear-gradient(100deg,var(--f) 0 4px,#7a4c28 4px 6px,#9a6a3e 6px 9px)}
+.dmini.glass{background:linear-gradient(145deg,#9fe3c4cc,var(--f) 55%,#2f8f66);box-shadow:inset 0 -3px 0 var(--e),inset 0 2px 6px #ffffff88,0 2px 4px #0003}
+.dchip{--s:14px;vertical-align:-2px}
+.discnote{display:flex;align-items:center;gap:8px;margin-top:10px;padding:7px 10px;border-radius:10px;background:#1d8a4614;border:1.5px dashed #1d8a46;font-size:12px;font-weight:700;color:#1d6e3a}
+.discnote s{color:var(--ink-2);font-weight:600;margin-left:4px}
 .lobtoggles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .musictoggle{align-self:center;background:none;border:1.5px solid #f6ebcf55;color:var(--paper-2);border-radius:999px;padding:6px 14px;font-weight:700;font-size:12.5px}
 .pot{font-size:10.5px;font-weight:700;color:var(--paper-3);text-align:center;line-height:1.2;max-width:96px}
@@ -277,7 +298,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
   .tok{width:24px;height:24px}
   .pot{background:#1b120c99;border-radius:10px;padding:5px 9px;text-align:right}
   /* dok melayang di tengah papan; hanya kartunya yang bisa disentuh, sisanya tembus ke papan */
-  #dock{left:50%;top:52%;bottom:auto;transform:translate(-50%,-50%);width:min(280px,42vw);padding:0;pointer-events:none}
+  /* agak ke bawah dari tengah papan; dadu dijatuhkan di sisi papan yang jauh supaya tidak tertutup */
+  #dock{left:50%;top:66%;bottom:auto;transform:translate(-50%,-50%);width:min(280px,42vw);padding:0;pointer-events:none}
   #dock .dcard{pointer-events:auto;gap:4px}
   .arc{max-width:220px}
   .lgr-row{margin-top:-20px;gap:6px;max-width:260px}
@@ -467,6 +489,21 @@ const COLORS = [
 ];
 const colorHex = id => (COLORS.find(c => c.id === id) || COLORS[0]).hex;
 
+// Pilihan dadu: total 6 bintang dibagi ke Kontrol, Hoki, Diskon (1-4 bintang tiap stat)
+//  Kontrol: seberapa patuh hasil pada posisi jarum  -> sebaran (sigma) undian dadu
+//  Hoki:    peluang "untung" di Pojok Kejutan 45/50/55/60% + kartu untung lebih sering keluar
+//  Diskon:  potongan harga beli tanah & membangun 5/10/15/20% (sewa tidak berubah)
+const DICE = [
+  { id:'klasik',  name:'Dadu Klasik',  desc:'Seimbang',                 ctrl:2, luck:2, disc:2, face:'#fffdf6', pip:'#2a1d12', one:'#c8302a', edge:'#d9cfbd' },
+  { id:'parang',  name:'Dadu Parang',  desc:'Penembak jitu',            ctrl:4, luck:1, disc:1, face:'#231b16', pip:'#e6b23a', one:'#e6b23a', edge:'#0f0b08', motif:'parang' },
+  { id:'juragan', name:'Dadu Juragan', desc:'Tuan tanah hemat',         ctrl:1, luck:1, disc:4, face:'#e9b949', pip:'#4a2e00', one:'#8d1f18', edge:'#a8771a', shine:true },
+  { id:'keramat', name:'Dadu Keramat', desc:'Penjudi andalkan hoki',    ctrl:1, luck:4, disc:1, face:'#8a5a32', pip:'#f6ebcf', one:'#f2cf1d', edge:'#5a3a1e', motif:'kayu' },
+  { id:'giok',    name:'Dadu Giok',    desc:'Jitu, masih ada hoki',     ctrl:3, luck:2, disc:1, face:'#5fbf96', pip:'#0d3b2a', one:'#0d3b2a', edge:'#2f8f66', glass:true },
+];
+const diceOf = pl => DICE.find(d => d.id === (pl && pl.dice)) || DICE[0];
+const sigmaOf = pl => 1.9 - .25 * diceOf(pl).ctrl;                 // ★1 1.65 · ★2 1.4 · ★3 1.15 · ★4 0.9
+const priceFor = (pl, amt) => Math.round(amt * (1 - .05 * diceOf(pl).disc));
+
 const fmt = v => {
   const a = Math.abs(v);
   const s = a >= 1000 ? (a / 1000).toFixed(2).replace(/\.?0+$/, '').replace('.', ',') + 'jt' : a + 'rb';
@@ -493,7 +530,7 @@ function newGame(players, seq) {
   return {
     v:1, seq, phase:'roll', turn:0,
     // par = kuota Ganjil/Genap (0 atau 1), terisi lagi setiap melewati START
-    players: players.map(p => ({ id:p.id, name:p.name, color:p.color, money:START_MONEY, pos:0, jail:0, free:0, out:false, par:1 })),
+    players: players.map(p => ({ id:p.id, name:p.name, color:p.color, dice:diceOf(p).id, money:START_MONEY, pos:0, jail:0, free:0, out:false, par:1 })),
     own:{}, pot:0, deck:{ ch:shuffle(CH.length), cc:shuffle(CC.length), chI:0, ccI:0 },
     again:false, dbl:0, pending:null, lastDice:7, winner:null, endWhy:null,
     log:['Permainan dimulai. Semoga beruntung!'], fx:[],
@@ -503,12 +540,12 @@ function begin(s0) { const s = JSON.parse(JSON.stringify(s0)); s.seq++; s.fx = [
 function log(s, t) { s.log.push(t); if (s.log.length > 40) s.log.splice(0, s.log.length - 40); }
 
 // Dadu ala Let's Get Rich: pilihan ganjil/genap selalu dituruti, sedangkan bar hanya mengarahkan besar-kecilnya angka (tetap ada unsur acak).
-function rollDice(pref, p) {
+function rollDice(pref, p, sigma = 1.15) {
   const target = 2 + p * 10, combos = []; let tot = 0;
   for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) {
     const sum = a + b;
     if ((pref === 'ganjil' && sum % 2 === 0) || (pref === 'genap' && sum % 2 === 1)) continue;
-    let w = Math.exp(-((sum - target) ** 2) / (2 * 1.15 * 1.15));
+    let w = Math.exp(-((sum - target) ** 2) / (2 * sigma * sigma));
     w += 0.035;
     combos.push([a, b, w]); tot += w;
   }
@@ -573,7 +610,7 @@ function doSurprise(s, pi, depth) {
   const seen = seenList(pl, 'sp', total);
   const left = [...Array(total).keys()].filter(i => !seen.includes(i));
   const goodLeft = left.filter(i => i < nG), badLeft = left.filter(i => i >= nG);
-  let good = Math.random() < .5;
+  let good = Math.random() < .4 + .05 * diceOf(pl).luck;   // stat Hoki: 45/50/55/60% untung
   if (good && !goodLeft.length) good = false;
   if (!good && !badLeft.length) good = true;
   const from = good ? goodLeft : badLeft, idx = from[Math.floor(Math.random() * from.length)];
@@ -674,17 +711,25 @@ function seenList(pl, key, total) {
   pl.seen[key] = seen;
   return seen;
 }
-function drawUnseen(pl, key, total) {
+// weight (opsional): bobot tiap kartu, dipakai stat Hoki supaya kartu untung lebih sering keluar
+function drawUnseen(pl, key, total, weight) {
   const seen = seenList(pl, key, total);
   const pool = [...Array(total).keys()].filter(i => !seen.includes(i));
-  const pick = pool[Math.floor(Math.random() * pool.length)];
+  let pick = pool[Math.floor(Math.random() * pool.length)];
+  if (weight) {
+    let r = Math.random() * pool.reduce((sum, i) => sum + weight(i), 0);
+    for (const i of pool) { r -= weight(i); if (r <= 0) { pick = i; break; } }
+  }
   seen.push(pick);
   return pick;
 }
 function drawCard(s, pi, k, depth) {
   const deck = k === 'ch' ? CH : CC;
   const pl = s.players[pi], src = 'Kartu ' + (k === 'ch' ? 'Kesempatan' : 'Dana Umum');
-  const card = deck[drawUnseen(pl, k, deck.length)];
+  // Hoki ★1..★4: kartu untung berbobot 0.75..1.5, kartu rugi 1.25..0.5, kartu jalan-jalan tetap 1
+  const L = diceOf(pl).luck - 2;
+  const weight = i => { const tag = CARD_TAG[deck[i].a[0]] || 'jalan'; return tag === 'untung' ? 1 + .25 * L : tag === 'rugi' ? 1 - .25 * L : 1; };
+  const card = deck[drawUnseen(pl, k, deck.length, weight)];
   const [a, x, y] = card.a;
   s.fx.push({ t:'card', k, text:card.t, tag:CARD_TAG[a] || 'jalan' });
   log(s, `${pl.name} mengambil kartu ${k === 'ch' ? 'Kesempatan' : 'Dana Umum'}: ${card.t}`);
@@ -745,10 +790,10 @@ function resolve(s, pi, depth = 0) {
     case 'city': case 'rail': case 'util': {
       const o = s.own[i];
       if (!o) {
-        if (pl.money >= t.p) { s.phase = 'buy'; s.pending = i; }
+        if (pl.money >= priceFor(pl, t.p)) { s.phase = 'buy'; s.pending = i; }
         else { s.fx.push({ t:'msg', text:`Uang belum cukup untuk membeli ${t.n}.` }); log(s, `${pl.name} belum cukup uang untuk ${t.n}.`); }
       } else if (o.o === pi) {
-        if (t.k === 'city' && o.lv < LANDMARK_LV && pl.money >= stepCost(i, o.lv, o.lv + 1)) { s.phase = 'build'; s.pending = i; }
+        if (t.k === 'city' && o.lv < LANDMARK_LV && pl.money >= priceFor(pl, stepCost(i, o.lv, o.lv + 1))) { s.phase = 'build'; s.pending = i; }
       } else {
         // tagihan sewa ditampilkan dulu; uang baru berpindah saat pemain menekan Bayar
         s.phase = 'bill'; s.pending = i;
@@ -832,7 +877,7 @@ function actRoll(s0, pref, p) {
     if (parityOf(pl) > 0) { pl.par = 0; log(s, `${pl.name} memakai kuota ${pref === 'ganjil' ? 'Ganjil' : 'Genap'}.`); }
     else pref = 'bebas';
   } else pref = 'bebas';
-  const r = rollDice(pref, p), [a, b] = r.d, sum = a + b;
+  const r = rollDice(pref, p, sigmaOf(pl)), [a, b] = r.d, sum = a + b;
   s.lastDice = sum;
   s.fx.push({ t:'dice', d:r.d, target:Math.round(r.target), pref, p:pi, g:p });
   if (s.phase === 'jail') {
@@ -874,10 +919,11 @@ function logBuild(s, pl, i, lv) {
 // Tahap 1: kunjungan pertama hanya membeli tanah. Bangunan baru boleh di kunjungan berikutnya.
 function actBuy(s0, yes) {
   const s = begin(s0), i = s.pending, pi = s.turn, pl = s.players[pi], t = T[i];
-  if (yes && !s.own[i] && pl.money >= t.p) {
-    pl.money -= t.p; s.own[i] = { o:pi, lv:0 };
-    s.fx.push({ t:'buy', p:pi, tile:i, amt:t.p });
-    log(s, `${pl.name} membeli ${t.n} seharga ${fmt(t.p)}.`);
+  const price = priceFor(pl, t.p);   // stat Diskon dadu
+  if (yes && !s.own[i] && pl.money >= price) {
+    pl.money -= price; s.own[i] = { o:pi, lv:0 };
+    s.fx.push({ t:'buy', p:pi, tile:i, amt:price });
+    log(s, `${pl.name} membeli ${t.n} seharga ${fmt(price)}.`);
   } else log(s, `${pl.name} melewatkan ${t.n}.`);
   s.phase = 'roll';
   return endTurn(s);
@@ -887,7 +933,7 @@ function actBuild(s0, yes, target) {
   const s = begin(s0), i = s.pending, pi = s.turn, pl = s.players[pi], o = s.own[i];
   if (yes && o && o.o === pi) {
     const ok = o.lv < MAX_BLD ? (target > o.lv && target <= MAX_BLD) : (o.lv === MAX_BLD && target === LANDMARK_LV);
-    const c = ok ? stepCost(i, o.lv, target) : 0;
+    const c = ok ? priceFor(pl, stepCost(i, o.lv, target)) : 0;
     if (ok && pl.money >= c) {
       pl.money -= c; o.lv = target;
       s.fx.push({ t:'build', p:pi, tile:i, lv:target, amt:c });
@@ -1461,16 +1507,35 @@ pawns.forEach(p => { p.visible = false; scene.add(p); });
 function setPawnColor(pi, hex) { pawns[pi].userData.mat.color.set(hex); pawns[pi].userData.ring.material.color.set(hex); }
 
 // ---- Dadu ----
-function diceFace(n) {
+// muka dadu sesuai jenis dadu pemain (warna, motif batik/kayu, emas, giok)
+function diceFace(n, d) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
-  x.fillStyle = '#d9cfbd'; x.fillRect(0, 0, 128, 128);
-  x.fillStyle = '#fffdf6'; rr(x, 6, 6, 116, 116, 22); x.fill();
+  x.fillStyle = d.edge; x.fillRect(0, 0, 128, 128);
+  rr(x, 6, 6, 116, 116, 22);
+  if (d.shine) { const g = x.createLinearGradient(0, 0, 128, 128); g.addColorStop(0, '#fff2b8'); g.addColorStop(.45, d.face); g.addColorStop(1, '#b07e1c'); x.fillStyle = g; }
+  else x.fillStyle = d.face;
+  x.fill();
+  x.save(); rr(x, 6, 6, 116, 116, 22); x.clip();
+  if (d.motif === 'parang') {
+    // garis miring bergelombang khas batik parang
+    x.strokeStyle = '#6a4a1c'; x.lineWidth = 3;
+    for (let k = -128; k < 256; k += 22) { x.beginPath(); for (let t = 0; t <= 128; t += 8) x.lineTo(k + t + Math.sin(t / 9) * 4, t); x.stroke(); }
+  } else if (d.motif === 'kayu') {
+    for (let k = 0; k < 14; k++) { x.strokeStyle = k % 2 ? '#6e4426' : '#a06e40'; x.lineWidth = 2 + (k % 3); x.beginPath(); x.moveTo(0, k * 10 + 4); x.bezierCurveTo(40, k * 10 - 6, 88, k * 10 + 14, 128, k * 10 + 2); x.stroke(); }
+  } else if (d.glass) {
+    const g = x.createRadialGradient(40, 36, 4, 64, 64, 90); g.addColorStop(0, '#ffffffaa'); g.addColorStop(.4, '#ffffff22'); g.addColorStop(1, '#00000022');
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  }
+  x.restore();
   const P = { 1:[[64,64]], 2:[[36,36],[92,92]], 3:[[34,34],[64,64],[94,94]], 4:[[36,36],[92,36],[36,92],[92,92]], 5:[[34,34],[94,34],[64,64],[34,94],[94,94]], 6:[[36,30],[92,30],[36,64],[92,64],[36,98],[92,98]] };
-  x.fillStyle = n === 1 ? '#c8302a' : '#2a1d12';
+  x.fillStyle = n === 1 ? d.one : d.pip;
   P[n].forEach(([a, b]) => { x.beginPath(); x.arc(a, b, n === 1 ? 15 : 11, 0, 7); x.fill(); });
-  return new THREE.MeshStandardMaterial({ map:canvasTex(cv), roughness:.35 });
+  return new THREE.MeshStandardMaterial({ map:canvasTex(cv), roughness:d.shine ? .25 : d.glass ? .15 : .35, metalness:d.shine ? .45 : 0,
+    transparent:!!d.glass, opacity:d.glass ? .9 : 1 });
 }
-const DICE_MATS = [2, 5, 1, 6, 3, 4].map(diceFace); // +x,-x,+y,-y,+z,-z
+const diceMatCache = {};
+const diceMats = d => diceMatCache[d.id] || (diceMatCache[d.id] = [2, 5, 1, 6, 3, 4].map(n => diceFace(n, d)));   // +x,-x,+y,-y,+z,-z
+const DICE_MATS = diceMats(DICE[0]);
 const FACE_ROT = { 1:[0,0], 6:[Math.PI,0], 2:[0,Math.PI/2], 5:[0,-Math.PI/2], 3:[-Math.PI/2,0], 4:[Math.PI/2,0] };
 const DS = .56;
 const dice = [0, 1].map(() => {
@@ -1846,7 +1911,11 @@ const glowRing = new THREE.Mesh(new THREE.RingGeometry(.6, .78, 64), new THREE.M
 glowRing.rotation.x = -Math.PI / 2; glowRing.position.set(0, .03, .4); scene.add(glowRing);
 const glowDisc = new THREE.Mesh(new THREE.CircleGeometry(1.4, 48), new THREE.MeshBasicMaterial({ color:'#fff3c4', transparent:true, opacity:0, depthWrite:false }));
 glowDisc.rotation.x = -Math.PI / 2; glowDisc.position.set(0, .02, .4); scene.add(glowDisc);
+// titik jatuh dadu: tengah papan (portrait) atau sisi jauh papan (landscape, supaya tidak tertutup tombol)
+const DICE_SPOT = () => LANDSCAPE.matches ? { x:-1.7, z:-1.7 } : { x:0, z:.6 };
 async function diceIntro(hex) {
+  const c = DICE_SPOT();
+  glowRing.position.set(c.x, .03, c.z); glowDisc.position.set(c.x, .02, c.z);
   const knob = $('#arcKnob'); if (knob) knob.classList.add('pulse');
   const fl = $('#flash'); fl.style.setProperty('--c', hex); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go');
   sfx.whoosh();
@@ -1859,10 +1928,14 @@ async function diceIntro(hex) {
   glowRing.material.opacity = glowDisc.material.opacity = 0;
   if (knob) knob.classList.remove('pulse');
 }
-async function throwDice(d) {
+async function throwDice(d, roller) {
   sfx.dice();
-  const starts = [new THREE.Vector3(-.5, 3.4, .9), new THREE.Vector3(.5, 3.8, .5)];
-  const ends = [new THREE.Vector3(-.55 + Math.random() * .25, DS / 2, .6 + Math.random() * .4), new THREE.Vector3(.5 + Math.random() * .25, DS / 2, .2 + Math.random() * .4)];
+  const mats = diceMats(diceOf(roller));   // dadu tampil sesuai pilihan pemain yang melempar
+  dice.forEach(m => { m.material = mats; });
+  // landscape: papan diputar 45° dan tombol ada di bawah tengah, jadi dadu jatuh di sisi papan yang jauh (atas layar)
+  const c = DICE_SPOT();
+  const starts = [new THREE.Vector3(c.x - .5, 3.4, c.z + .3), new THREE.Vector3(c.x + .5, 3.8, c.z - .1)];
+  const ends = [new THREE.Vector3(c.x - .55 + Math.random() * .25, DS / 2, c.z + Math.random() * .4), new THREE.Vector3(c.x + .5 + Math.random() * .25, DS / 2, c.z - .4 + Math.random() * .4)];
   const fin = d.map(v => { const [rx, rz] = FACE_ROT[v]; return { x:rx, y:Math.random() * Math.PI * 2, z:rz }; });
   const spin = d.map(() => ({ x:(2 + Math.floor(Math.random() * 3)) * Math.PI * 2, y:(1 + Math.floor(Math.random() * 2)) * Math.PI * 2, z:(1 + Math.floor(Math.random() * 3)) * Math.PI * 2 }));
   dice.forEach(m => { m.visible = true; m.scale.setScalar(.01); });
@@ -2227,7 +2300,7 @@ async function playFx(list, st) {
         if (typeof f.g === 'number') gaugeP = f.g;
         shownPref = f.pref; renderDock();
         await diceIntro(hx[f.p]);
-        await throwDice(f.d); showDiceResult(f); await sleep(380); break;
+        await throwDice(f.d, st.players[f.p]); showDiceResult(f); await sleep(380); break;
       case 'move': await movePawn(f.p, f.from, f.steps); break;
       case 'jail': await flyToJail(f.p); toast(`${names[f.p]} masuk penjara!`); await sleep(500); break;
       case 'gain': {
@@ -2291,7 +2364,8 @@ function chipHTML(st, k) {
   const p = st.players[k], props = Object.values(st.own).filter(o => o.o === k).length;
   const meTag = mode === 'online' && p.id === myId ? '<span class="me">KAMU</span>' : '';
   const meta = [`${props} properti`, parityOf(p) ? 'kuota G/G 1' : 'kuota G/G 0', p.free ? `${p.free} kartu bebas` : '', p.jail > 0 ? 'di penjara' : ''].filter(Boolean).join(' · ');
-  return `<span class="tok"></span><div class="info"><span class="nm">${k === 1 ? meTag : ''}${esc(p.name)}${k === 0 ? meTag : ''}</span>
+  const dc = diceOf(p), dIcon = `<span title="${dc.name}" aria-label="${dc.name}">${diceMini(dc, 14).replace('class="dmini', 'class="dmini dchip')}</span>`;
+  return `<span class="tok"></span><div class="info"><span class="nm">${k === 1 ? meTag + dIcon : ''}${esc(p.name)}${k === 0 ? dIcon + meTag : ''}</span>
     <span class="money" id="money${k}">${fmt(shownMoney[k])}</span><span class="meta">${meta}</span></div>`;
 }
 function renderHUD() {
@@ -2525,10 +2599,11 @@ function deedHTML(i, st, hlRow, curRow) {
 let selTier = 0, selFor = -1;
 function tierOptions(i) {
   const t = T[i], pl = S0.players[S0.turn];
-  if (S0.phase === 'buy') return [{ lv:0, cost:t.p, ok:t.p <= pl.money }];
+  // harga sudah dipotong stat Diskon dadu pemain
+  if (S0.phase === 'buy') { const c = priceFor(pl, t.p); return [{ lv:0, cost:c, base:t.p, ok:c <= pl.money }]; }
   const from = S0.own[i].lv;
   const tiers = from >= MAX_BLD ? [LANDMARK_LV] : [...Array(MAX_BLD - from).keys()].map(k => from + 1 + k);
-  return tiers.map(lv => ({ lv, cost:stepCost(i, from, lv) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
+  return tiers.map(lv => ({ lv, base:stepCost(i, from, lv), cost:priceFor(pl, stepCost(i, from, lv)) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
 }
 // Baris petak untuk daftar pilihan: warna kelompok, nama, dan keadaannya sekarang
 function tileRow(i, right) {
@@ -2573,7 +2648,9 @@ function openDecision() {
   const name = lv => lv === 0 ? 'Tanah saja' : lv === LANDMARK_LV ? `Landmark ${LANDMARKS[i][0]}` : LEVEL_NAMES[lv];
   const pills = opts.length > 1 ? `<div class="tiers" role="radiogroup" aria-label="Pilih tingkat bangunan">${opts.map(o =>
     `<button role="radio" aria-checked="${o.lv === selTier}" data-act="tier" data-lv="${o.lv}" ${o.ok ? '' : 'disabled'}><b>${name(o.lv)}</b><span>${fmt(o.cost)}</span></button>`).join('')}</div>` : '';
-  const bal = `<div class="bal"><span>Uangmu</span><span>${fmt(pl.money)} → <b>${fmt(pl.money - sel.cost)}</b></span></div>`;
+  const dc = diceOf(pl), saved = sel.base - sel.cost;
+  const disc = saved > 0 ? `<div class="discnote">${diceMini(dc, 16)}<span>${esc(dc.name)}: diskon ${dc.disc * 5}% · hemat <b>${fmt(saved)}</b> <s>${fmt(sel.base)}</s></span></div>` : '';
+  const bal = `${disc}<div class="bal"><span>Uangmu</span><span>${fmt(pl.money)} → <b>${fmt(pl.money - sel.cost)}</b></span></div>`;
   if (S0.phase === 'buy') {
     openModal(`<div class="sheet"><h2>Tanah kosong!</h2><p class="sub">${esc(pl.name)} mendarat di ${esc(t.n)}.${t.k === 'city' ? ' Beli tanahnya dulu; bangunan bisa didirikan saat mampir lagi.' : ''}</p>
       ${deedHTML(i, S0, t.k === 'city' ? 0 : -1)}${bal}
@@ -2650,6 +2727,7 @@ const RULES_HTML = `<div class="rules">
   <h3>Bebas Parkir</h3><p>Semua pajak, denda, dan biaya kartu masuk ke kas. Siapa yang berhenti di sini mengambil semuanya, lalu boleh pergi ke petak mana saja. Pion berjalan maju, jadi kalau melewati START tetap dapat gaji.</p>
   <h3>Pojok Kejutan</h3><p>Undian aksi besar: bisa sangat menguntungkan (misalnya langsung jadi landmark gratis) atau sangat merugikan (misalnya diculik ke kota termahal lawan). Tanah dan bangunan tidak pernah hilang karena kejutan.</p>
   <h3>Info daerah</h3><p>Ketuk petak mana saja di papan untuk melihat pemilik, tingkat bangunan, dan sewanya.</p>
+  <h3>Pilihan dadu</h3><p>Setiap pemain memilih satu dadu di awal. Tiap dadu punya total 6 bintang: <b>Kontrol</b> (hasil makin patuh pada posisi jarum), <b>Hoki</b> (peluang untung di Pojok Kejutan 45–60% dan kartu untung lebih sering keluar), dan <b>Diskon</b> (potongan 5–20% untuk beli tanah dan membangun).</p>
   <h3>Menang</h3><p>Lawan bangkrut, atau akhiri permainan kapan saja dan bandingkan total kekayaan.</p></div>`;
 function openOver() {
   const w = S0.winner, sc = [0, 1].map(k => ({ k, n:S0.players[k].name, v:worth(S0, k) }));
@@ -2806,7 +2884,22 @@ addEventListener('keyup', e => { if (e.code === 'Space') endHold(false); });
    LOBBY & ONLINE
    ========================================================= */
 let lobbyView = 'home', lobbyErr = '';
-const prefs = { name:lsGet('mn_name') || '', color:lsGet('mn_color') || 'merah', name2:lsGet('mn_name2') || '', color2:lsGet('mn_color2') || 'biru' };
+const prefs = { name:lsGet('mn_name') || '', color:lsGet('mn_color') || 'merah', name2:lsGet('mn_name2') || '', color2:lsGet('mn_color2') || 'biru',
+  dice:lsGet('mn_dice') || 'klasik', dice2:lsGet('mn_dice2') || 'klasik' };
+// kartu pilihan dadu: gambar dadu mini, nama, gaya main, dan bintang tiap stat
+const stars = n => '★'.repeat(n) + '<span class="off">' + '★'.repeat(4 - n) + '</span>';
+function diceMini(d, size = 34) {
+  return `<span class="dmini${d.glass ? ' glass' : ''}${d.motif ? ' m-' + d.motif : ''}" style="--f:${d.face};--p:${d.pip};--o:${d.one};--e:${d.edge};--s:${size}px"><i></i><i></i><i></i><i></i><i></i></span>`;
+}
+function dicePicker(key) {
+  return `<label>DADU</label><div class="dicepick" role="radiogroup" aria-label="Pilih dadu">${DICE.map(d => `
+    <button role="radio" aria-checked="${prefs[key] === d.id}" data-act="l:dice" data-key="${key}" data-d="${d.id}">
+      ${diceMini(d)}<b>${d.name}</b><em>${d.desc}</em>
+      <span class="dst"><span>Kontrol</span><span class="st">${stars(d.ctrl)}</span></span>
+      <span class="dst"><span>Hoki</span><span class="st">${stars(d.luck)}</span></span>
+      <span class="dst"><span>Diskon</span><span class="st">${stars(d.disc)}</span></span>
+    </button>`).join('')}</div>`;
+}
 let onlineState = 'checking'; // checking | ready | off
 let pendingRoom = null;
 
@@ -2835,12 +2928,12 @@ function renderLobby() {
         : onlineKind === 'server' ? 'Mode online: buka alamat ini di HP masing-masing. Satu orang membuat room, satunya memasukkan kode.'
         : 'Mode online: kalian berdua membuka link halaman ini dari akun claude.ai masing-masing.'}</p>`;
   } else if (lobbyView === 'local') {
-    h = `${logo}<div class="panel"><h3>Pemain 1</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color', prefs.color2)}</div>
-      <div class="panel"><h3>Pemain 2</h3><input type="text" id="inName2" maxlength="14" placeholder="Nama pasangan" value="${esc(prefs.name2)}">${swatches('color2', prefs.color)}</div>
+    h = `${logo}<div class="panel"><h3>Pemain 1</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color', prefs.color2)}${dicePicker('dice')}</div>
+      <div class="panel"><h3>Pemain 2</h3><input type="text" id="inName2" maxlength="14" placeholder="Nama pasangan" value="${esc(prefs.name2)}">${swatches('color2', prefs.color)}${dicePicker('dice2')}</div>
       ${err}<button class="ticket primary" data-act="l:startLocal"><b>Mulai main</b><span>Uang awal ${fmt(START_MONEY)} per orang</span></button>
       <button class="back" data-act="l:home">← Kembali</button>`;
   } else if (lobbyView === 'online') {
-    h = `${logo}<div class="panel"><h3>Kamu</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color')}</div>
+    h = `${logo}<div class="panel"><h3>Kamu</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color')}${dicePicker('dice')}</div>
       ${err}<button class="ticket primary" data-act="l:create"><b>Buat room baru</b><span>Dapat kode 4 huruf untuk pasanganmu</span></button>
       <div class="panel"><h3>Punya kode dari pasangan?</h3><div class="row"><input type="text" id="inCode" maxlength="4" placeholder="KODE" style="text-transform:uppercase;letter-spacing:.2em;text-align:center"><button class="btn red" data-act="l:join" style="flex:0 0 auto">Gabung</button></div></div>
       <button class="back" data-act="l:home">← Kembali</button>`;
@@ -2886,11 +2979,19 @@ async function lobbyAct(a, b) {
     case 'goLocal': lobbyView = 'local'; renderLobby(); break;
     case 'goOnline': lobbyView = 'online'; renderLobby(); break;
     case 'color': keepName(); prefs[b.dataset.key] = b.dataset.c; lsSet('mn_' + b.dataset.key, b.dataset.c); renderLobby(); break;
+    case 'dice': {
+      keepName(); prefs[b.dataset.key] = b.dataset.d; lsSet('mn_' + b.dataset.key, b.dataset.d);
+      // pertahankan posisi geser deretan dadu supaya tidak melompat ke awal
+      const rows = [...document.querySelectorAll('.dicepick')].map(el => el.scrollLeft);
+      renderLobby();
+      document.querySelectorAll('.dicepick').forEach((el, k) => { el.scrollLeft = rows[k] || 0; });
+      break;
+    }
     case 'startLocal': {
       keepName();
       if (prefs.color === prefs.color2) { lobbyErr = 'Pilih warna pion yang berbeda.'; renderLobby(); return; }
       mode = 'local';
-      const st = newGame([{ id:'p0', name:prefs.name || 'Pemain 1', color:prefs.color }, { id:'p1', name:prefs.name2 || 'Pemain 2', color:prefs.color2 }], 1);
+      const st = newGame([{ id:'p0', name:prefs.name || 'Pemain 1', color:prefs.color, dice:prefs.dice }, { id:'p1', name:prefs.name2 || 'Pemain 2', color:prefs.color2, dice:prefs.dice2 }], 1);
       lsSet('mn_local', JSON.stringify(st));
       S0 = null; shownSeq = -1; enterGame(); receive(st); break;
     }
@@ -2903,7 +3004,7 @@ async function lobbyAct(a, b) {
       keepName();
       if (!DB) return;
       const code = genCode();
-      const st = { v:1, seq:1, phase:'lobby', players:[{ id:myId, name:prefs.name || 'Pemain 1', color:prefs.color }], fx:[], log:[] };
+      const st = { v:1, seq:1, phase:'lobby', players:[{ id:myId, name:prefs.name || 'Pemain 1', color:prefs.color, dice:prefs.dice }], fx:[], log:[] };
       try { await DB.doc('rooms/' + code).set(st); }
       catch (e) { lobbyErr = onlineKind === 'server' ? serverErr(e, 'Room gagal dibuat. Cek koneksi internet lalu coba lagi.') : 'Room gagal dibuat. Pastikan kamu masuk ke claude.ai dan punya akses edit.'; renderLobby(); return; }
       roomCode = code; lsSet('mn_room', code); attachRoom(code);
@@ -2943,7 +3044,7 @@ async function joinRoom(code) {
     if (st.players[0].id === myId) { lsSet('mn_room', code); attachRoom(code); lobbyView = 'waiting'; renderLobby(); return; }
     let color = prefs.color;
     if (color === st.players[0].color) color = COLORS.find(c => c.id !== st.players[0].color).id;
-    const game = newGame([st.players[0], { id:myId, name:prefs.name || 'Pemain 2', color }], st.seq + 1);
+    const game = newGame([st.players[0], { id:myId, name:prefs.name || 'Pemain 2', color, dice:prefs.dice }], st.seq + 1);
     try { await DB.doc('rooms/' + code).set(game); }
     catch (e) { lobbyErr = onlineKind === 'server' ? serverErr(e, 'Gagal bergabung. Cek koneksi internet lalu coba lagi.') : 'Gagal bergabung. Pastikan kamu punya akses edit ke halaman ini.'; lobbyView = 'online'; renderLobby(); return; }
     lsSet('mn_room', code); attachRoom(code); return;
