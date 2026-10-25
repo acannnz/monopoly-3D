@@ -37,6 +37,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .chip.right{flex-direction:row-reverse;text-align:right}
 .chip.active{border-color:var(--c);transform:translateY(3px);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 35%,transparent),var(--shadow)}
 .chip.out{opacity:.5;filter:grayscale(1)}
+/* lencana status giliran di kartu nama (mis. "sedang jalan" dengan titik bergerak) */
+.cstat{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;max-width:100%;margin:2px 0 1px;padding:2px 9px 2px 8px;border-radius:999px;
+  background:var(--c);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.01em;box-shadow:inset 0 -2px 0 #0003}
+.cstat span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cstat .dots{gap:3px}.cstat .dots i{width:4px;height:4px}
+.chip.right .cstat{align-self:flex-end}
 .tok{flex:none;width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff8 0 18%,transparent 19%),var(--c);box-shadow:inset 0 -3px 0 #0003}
 .chip .info{min-width:0;display:flex;flex-direction:column;gap:1px}
 .chip .nm{font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:5px;align-items:center}
@@ -2360,12 +2366,30 @@ async function playFx(list, st) {
 }
 
 /* ---- HUD ---- */
+// status pemain yang sedang giliran, tampil sebagai lencana di kartu namanya (pengganti kapsul status di dok)
+function turnStatus() {
+  if (playing) return { text:'sedang jalan', live:true };
+  if (busy) return { text:'mengirim langkah', live:true };
+  const t = S0.pending != null ? T[S0.pending] : null;
+  switch (S0.phase) {
+    case 'roll': return { text:'giliran melempar' };
+    case 'jail': return { text:'di penjara · butuh kembar' };
+    case 'buy': return { text:`memutuskan beli ${t ? t.n : ''}` };
+    case 'build': return { text:`membangun di ${t ? t.n : ''}` };
+    case 'bill': return { text:S0.bill ? `membayar ${lc1(S0.bill.why)}` : 'membayar' };
+    case 'startUp': return { text:'memilih tanah gratis' };
+    case 'travel': return { text:'memilih tujuan' };
+  }
+  return null;
+}
 function chipHTML(st, k) {
   const p = st.players[k], props = Object.values(st.own).filter(o => o.o === k).length;
+  const ts = st.phase !== 'over' && st.turn === k ? turnStatus() : null;
+  const badge = ts ? `<span class="cstat${ts.live ? ' live' : ''}">${ts.live ? '<span class="dots light"><i></i><i></i><i></i></span>' : ''}<span>${esc(ts.text)}</span></span>` : '';
   const meTag = mode === 'online' && p.id === myId ? '<span class="me">KAMU</span>' : '';
   const meta = [`${props} properti`, parityOf(p) ? 'kuota G/G 1' : 'kuota G/G 0', p.free ? `${p.free} kartu bebas` : '', p.jail > 0 ? 'di penjara' : ''].filter(Boolean).join(' · ');
   const dc = diceOf(p), dIcon = `<span title="${dc.name}" aria-label="${dc.name}">${diceMini(dc, 14).replace('class="dmini', 'class="dmini dchip')}</span>`;
-  return `<span class="tok"></span><div class="info"><span class="nm">${k === 1 ? meTag + dIcon : ''}${esc(p.name)}${k === 0 ? dIcon + meTag : ''}</span>
+  return `<span class="tok"></span><div class="info"><span class="nm">${k === 1 ? meTag + dIcon : ''}${esc(p.name)}${k === 0 ? dIcon + meTag : ''}</span>${badge}
     <span class="money" id="money${k}">${fmt(shownMoney[k])}</span><span class="meta">${meta}</span></div>`;
 }
 function renderHUD() {
@@ -2441,18 +2465,9 @@ function renderDock() {
     showPick(S0.phase, pickEligible(), mine ? pickSel : -1);
   } else clearPick();
   if (picking && mine) { hideSteps(); renderPickDock(p, c); return; }
-  let status;
-  if (!free) status = `${esc(p.name)} sedang jalan…`;
-  else if (!mine) {
-    const what = S0.phase === 'buy' ? `memutuskan beli ${T[S0.pending].n}` : S0.phase === 'build' ? `membangun di ${T[S0.pending].n}`
-      : S0.phase === 'bill' ? `membayar ${lc1(S0.bill.why)}` : S0.phase === 'startUp' ? 'memilih tanah untuk naik gratis'
-      : S0.phase === 'travel' ? 'memilih tujuan' : inJail ? 'mencoba keluar penjara' : 'melempar dadu';
-    status = `Menunggu ${esc(p.name)} ${esc(what)}…`;
-  } else if (deciding) status = `Giliran ${esc(p.name)} · putuskan di kartu`;
-  else status = `Giliran ${esc(p.name)}${inJail ? ' · butuh dadu kembar' : ''}`;
-  // HP pemain yang sedang menunggu: cukup kapsul status, tanpa bar dadu, supaya papan tidak terhalang
+  // HP pemain yang sedang menunggu: dok disembunyikan; status giliran tampil di kartu nama pemain (lihat turnStatus)
   if (!mine) {
-    dock.innerHTML = `<div class="dcard clear"><div class="dpill" style="--c:${c}"><i></i><span>${status}</span></div></div>`;
+    dock.hidden = true; dock.innerHTML = '';
     if (free && (S0.phase === 'roll' || inJail)) showSteps(p.pos); else if (free) hideSteps();
     return;
   }
@@ -2466,7 +2481,7 @@ function renderDock() {
   const jail = canRoll && inJail ? `<div class="jailrow"><p>Di penjara · percobaan ${p.jail}/3. Dapat kembar untuk keluar gratis.</p>
       <button class="btn gold" data-act="jailPay">Bayar ${fmt(JAIL_FINE)}</button>${p.free ? `<button class="btn" data-act="jailCard">Pakai kartu</button>` : ''}</div>` : '';
   const stops = ['#d8322c', '#f08a24', '#f2cf1d', '#5cc28a', '#3fa7c9', '#2f6fe0', '#8a4fd6', '#ec5fa4'];
-  dock.innerHTML = `<div class="dcard clear"><div class="dpill" style="--c:${c}"><i></i><span>${status}</span></div>${jail}
+  dock.innerHTML = `<div class="dcard clear">${jail}
     <div class="lgr ${canRoll ? '' : 'idle'}">
       <svg class="arc" viewBox="0 0 300 96" aria-hidden="true">
         <defs><linearGradient id="rbw" x1="0" x2="1">${stops.map((c, k) => `<stop offset="${k / (stops.length - 1)}" stop-color="${c}"/>`).join('')}</linearGradient></defs>
@@ -2508,9 +2523,8 @@ function renderPickDock(p, c) {
   if (sel < 0) info = `<span class="ph">${travel ? 'Ketuk petak yang menyala di papan untuk memilih tujuan.' : 'Ketuk tanahmu yang menyala di papan untuk dinaikkan 1 tingkat gratis.'}</span>`;
   else if (travel) info = tileRow(sel, sel < p.pos ? `<b class="up">lewat START +${fmt(SALARY)}</b>` : '');
   else info = tileRow(sel, `<b class="up">${esc(lvName(sel, S0.own[sel].lv))} → ${esc(lvName(sel, S0.own[sel].lv + 1))}</b>`);
-  const title = travel ? `${esc(p.name)} bebas pergi ke mana saja` : `${esc(p.name)} tepat di START: naik 1 tingkat gratis`;
   const go = sel < 0 ? (travel ? 'Pilih tujuan dulu' : 'Pilih tanah dulu') : travel ? `Pergi ke ${esc(T[sel].n)}` : `Naikkan ${esc(T[sel].n)}`;
-  $('#dock').innerHTML = `<div class="dcard clear"><div class="dpill" style="--c:${c}"><i></i><span>${title}</span></div>
+  $('#dock').innerHTML = `<div class="dcard clear">
     <div class="pickdock"><div class="pickinfo">${info}</div>
       ${sel >= 0 ? `<span class="ph2">Ketuk petak lain untuk ganti pilihan, atau ketuk lagi petak ini untuk ${travel ? 'langsung jalan' : 'langsung naik tingkat'}.</span>` : ''}
       <div class="pickbtns"><button class="btn ghost" data-act="${travel ? 'travelStay' : 'startSkip'}">${travel ? 'Tetap di sini' : 'Lewati'}</button>
@@ -2750,10 +2764,10 @@ async function commit(ns) {
   if (!ns) return;
   if (mode === 'local') { lsSet('mn_local', JSON.stringify(ns)); receive(ns); return; }
   if (!roomRef) return;
-  busy = true; renderDock();
+  busy = true; renderHUD(); renderDock();
   try { await roomRef.set(ns); }
   catch (e) { toast(serverErr(e, 'Langkah gagal terkirim. Cek koneksi lalu coba lagi.')); }
-  busy = false; renderDock();
+  busy = false; renderHUD(); renderDock();
 }
 
 /* ---- Event ---- */
