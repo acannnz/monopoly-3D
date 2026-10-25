@@ -10,6 +10,8 @@ WorkingDirectory=/home/arcandapp/monopoli-server
 Environment=PORT=3077
 Environment=HOST=127.0.0.1
 Environment=DATA_FILE=/home/arcandapp/monopoli-server/rooms.json
+# HERMES_KEY untuk /api/ai (kunci API server profil Hermes "monopoli"); tanpa file ini komputer memakai otak bawaan
+EnvironmentFile=-/home/arcandapp/monopoli-server/hermes.env
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=3

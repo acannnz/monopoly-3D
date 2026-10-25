@@ -92,6 +92,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
   background:#000b;color:var(--paper);padding:8px 14px;border-radius:999px;font-weight:700;font-size:13px;max-width:calc(100% - 32px);text-align:center;
   opacity:0;transition:opacity .25s,transform .25s}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+/* gelembung omongan komputer, muncul di dekat kartu namanya */
+#cpuSay{position:fixed;z-index:6;width:230px;pointer-events:none;background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-radius:14px;
+  padding:6px 11px 7px;font-weight:700;font-size:13px;line-height:1.3;box-shadow:0 6px 16px #0005;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .25s}
+#cpuSay.show{opacity:1;transform:none}
+#cpuSay small{display:block;font-size:9px;letter-spacing:.12em;opacity:.6}
 #stamp{position:absolute;left:50%;top:40%;z-index:7;pointer-events:none;font-family:var(--font-display);font-size:clamp(34px,10vw,64px);color:var(--c,#c8302a);
   padding:4px 18px;border:6px solid currentColor;border-radius:14px;background:#f6ebcfe6;opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(2.2);white-space:nowrap}
 #stamp.go{animation:stamp 1.5s cubic-bezier(.2,1.4,.4,1) forwards}
@@ -231,7 +236,24 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .gcard.k-sp.good .front{background:linear-gradient(180deg,#eafbef,#fffaf0)}
 .gcard.k-sp.bad .front{background:linear-gradient(180deg,#fdeaea,#fffaf0)}
 .ctag{display:inline-block;margin-top:12px;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:#fff;background:#6a5640}
-.ctag.untung{background:#1d8a46}.ctag.rugi{background:var(--merah)}.ctag.jalan{background:#2563b8}
+.ctag.untung{background:#1d8a46}.ctag.rugi{background:var(--merah)}.ctag.jalan{background:#2563b8}.ctag.skill{background:var(--sk)}
+/* ---------- Kartu Skill ---------- */
+:root{--sk:#0f8b8d}
+.gcard.k-sk{--kc:var(--sk)}
+.gcard.k-sk .back{background:repeating-linear-gradient(135deg,#0f8b8d 0 14px,#18a3a5 14px 28px);font-size:60px}
+.gcard .front h4{margin:4px 0 0;font-family:var(--font-display);font-weight:400;font-size:22px;color:var(--kc)}
+.gcard .front .drop{font-size:11px;font-weight:700;color:var(--ink-2);margin:6px 0 0}
+.btn.sk{background:var(--sk);color:#fff;box-shadow:0 3px 0 #06494a}
+.skbtn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 13px;border-radius:999px;border:2px solid var(--ink);background:var(--sk);color:#fff;font-weight:800;font-size:12px;letter-spacing:.04em;box-shadow:0 3px 0 var(--ink)}
+.skbtn i{font-style:normal;background:#fff;color:var(--sk);border-radius:999px;min-width:18px;padding:0 5px;font-size:11px}
+.sklist{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.skc{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:9px 11px;border-radius:12px;border:2px solid var(--sk);background:#0f8b8d10}
+.skc b{font-size:14px}.skc p{grid-column:1;margin:0;font-size:12px;font-weight:600;color:var(--ink-2)}
+.skc em{grid-column:1;font-style:normal;font-size:10.5px;font-weight:800;color:var(--sk);letter-spacing:.03em}
+.skc button{grid-row:1 / span 3;grid-column:2;padding:8px 12px}
+.skrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.skrow .btn{flex:1 1 140px;font-size:12.5px}
+.plist h4{margin:8px 0 4px;font-size:11px;letter-spacing:.08em;color:var(--sk)}
 .taphint{text-align:center;font-size:11px;color:var(--paper-3);margin-top:10px;font-weight:600}
 
 .menu-list{display:flex;flex-direction:column;gap:8px}
@@ -340,6 +362,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
     <div class="chip right" id="chip1"></div>
   </header>
   <div id="toast" role="status" aria-live="polite"></div>
+  <div id="cpuSay" aria-live="polite"></div>
   <div id="stamp"></div>
   <div id="flash"></div>
   <div id="diceResult"></div>
@@ -377,7 +400,7 @@ const T = [
   { n:'Dana Umum', k:'cc' },
   city('Merauke','Papua Selatan','coklat',60,[4,20,60,180,320,450]),
   { n:'Pajak Penghasilan', k:'tax', amt:200, ic:'coin' },
-  { n:'Stasiun Gambir', k:'rail', p:200, ic:'train' },
+  { n:'Kartu Skill', k:'skill' },
   city('Ambon','Maluku','biruMuda',100,[6,30,90,270,400,550]),
   { n:'Kesempatan', k:'ch' },
   city('Ternate','Maluku Utara','biruMuda',100,[6,30,90,270,400,550]),
@@ -387,7 +410,7 @@ const T = [
   { n:'Perusahaan Listrik', k:'util', p:150, ic:'bulb' },
   city('Palu','Sulawesi Tengah','pink',140,[10,50,150,450,625,750]),
   city('Makassar','Sulawesi Selatan','pink',160,[12,60,180,500,700,900]),
-  { n:'Pelabuhan Tanjung Perak', k:'rail', p:200, ic:'ship' },
+  { n:'Kartu Skill', k:'skill' },
   city('Pontianak','Kalimantan Barat','oranye',180,[14,70,200,550,750,950]),
   { n:'Dana Umum', k:'cc' },
   city('Banjarmasin','Kalimantan Selatan','oranye',180,[14,70,200,550,750,950]),
@@ -397,7 +420,7 @@ const T = [
   { n:'Kesempatan', k:'ch' },
   city('Palembang','Sumatera Selatan','merah',220,[18,90,250,700,875,1050]),
   city('Medan','Sumatera Utara','merah',240,[20,100,300,750,925,1100]),
-  { n:'Bandara Ngurah Rai', k:'rail', p:200, ic:'plane' },
+  { n:'Kartu Skill', k:'skill' },
   city('Semarang','Jawa Tengah','kuning',260,[22,110,330,800,975,1150]),
   city('Yogyakarta','DI Yogyakarta','kuning',260,[22,110,330,800,975,1150]),
   { n:'Perusahaan Air Minum', k:'util', p:150, ic:'drop' },
@@ -407,25 +430,25 @@ const T = [
   city('Labuan Bajo','Nusa Tenggara Timur','hijau',300,[26,130,390,900,1100,1275]),
   { n:'Dana Umum', k:'cc' },
   city('Bandung','Jawa Barat','hijau',320,[28,150,450,1000,1200,1400]),
-  { n:'Stasiun Tugu', k:'rail', p:200, ic:'train' },
+  { n:'Kartu Skill', k:'skill' },
   { n:'Kesempatan', k:'ch' },
   city('Bali','Bali','biru',350,[35,175,500,1100,1300,1500]),
   { n:'Pajak Barang Mewah', k:'tax', amt:100, ic:'ring' },
   city('Jakarta','DKI Jakarta','biru',400,[50,200,600,1400,1700,2000]),
 ];
-const RAILS = [5,15,25,35], UTILS = [12,28];
+const SKILL_TILES = [5,15,25,35], UTILS = [12,28];   // dulu stasiun/pelabuhan/bandara, sekarang petak Kartu Skill
 
 // Kartu: t = teks, a = [aksi, nilai, nilai2]. Aksi dijalankan di drawCard().
 const CH = [
   { t:'Mudik Lebaran! Maju ke START dan terima gaji Rp500rb.', a:['to',0] },
   { t:'Dapat paket honeymoon ke Bali. Langsung maju ke Bali!', a:['to',37] },
   { t:'Kangen bika ambon asli. Pulang kampung ke Medan.', a:['to',24] },
-  { t:'Naik kereta pagi dari Stasiun Gambir. Maju ke sana.', a:['to',5] },
-  { t:'Naik kapal dari Pelabuhan Tanjung Perak. Maju ke sana.', a:['to',15] },
+  { t:'Nonton video tutorial sampai subuh. Langsung dapat 1 Kartu Skill!', a:['skill'] },
+  { t:'Naik kapal pinisi ke timur. Maju ke Ambon.', a:['to',6] },
   { t:'Ada rapat penting di ibu kota. Maju ke Jakarta.', a:['to',39] },
   { t:'Kelupaan dompet di warteg. Mundur 3 langkah.', a:['back',3] },
   { t:'Kebelet cari toilet umum. Maju 5 langkah, buru-buru!', a:['fwd',5] },
-  { t:'Pesan ojek online, abangnya ngebut. Maju ke transportasi terdekat.', a:['nearRail'] },
+  { t:'Ikut kursus kilat di balai desa. Maju ke petak Kartu Skill terdekat.', a:['nearSkill'] },
   { t:'Mati listrik se-kompleks. Maju ke perusahaan terdekat untuk komplain.', a:['nearUtil'] },
   { t:'Salah naik angkot! Tukar posisi dengan pasanganmu.', a:['swap'] },
   { t:'Dapat tiket kereta keliling Nusantara. Pergi ke petak mana saja!', a:['travel'] },
@@ -462,7 +485,7 @@ const CC = [
   { t:'Pak RT menjamin kamu. Dapat Kartu Bebas Penjara.', a:['free'] },
 ];
 // label di muka kartu, supaya langsung terasa untung atau rugi
-const CARD_TAG = { get:'untung', fromOther:'untung', perProp:'untung', potHalf:'untung', lotto:'untung', upRandom:'untung', free:'untung',
+const CARD_TAG = { skill:'untung', get:'untung', fromOther:'untung', perProp:'untung', potHalf:'untung', lotto:'untung', upRandom:'untung', free:'untung',
   pay:'rugi', payOther:'rugi', repair:'rugi', payPerProp:'rugi', jail:'rugi' };
 
 // Pojok Kejutan: separuh peluang sangat menguntungkan, separuh sangat merugikan. Tidak pernah mengambil tanah/bangunan.
@@ -484,6 +507,36 @@ const SURPRISE = {
     { t:'Terekam kamera ngebut di jalan tol. Langsung masuk penjara!', a:'jail' },
   ],
 };
+
+// Kartu Skill: didapat di 4 petak Kartu Skill, disimpan (paling banyak MAX_SK), dipakai kapan saja saat waktunya cocok.
+// Satu skill per giliran. when: roll = sebelum melempar, jail = di penjara, bill = saat ada tagihan, buy = saat beli/bangun.
+const MAX_SK = 3;
+const SKILLS = [
+  { id:'lembur',   n:'Gaji Lembur',      when:'roll', t:'Terima Rp150rb dari bank.' },
+  { id:'bunga',    n:'Bunga Deposito',   when:'roll', t:'Terima bunga 10% dari uangmu (Rp30rb sampai Rp200rb).' },
+  { id:'tagih',    n:'Tagih Utang',      when:'roll', t:'Pasanganmu membayar Rp100rb kepadamu.' },
+  { id:'parkir',   n:'Juru Parkir',      when:'roll', t:'Ambil setengah kas Bebas Parkir.' },
+  { id:'kuota',    n:'Isi Kuota',        when:'roll', t:'Kuota Ganjil/Genap langsung terisi lagi.' },
+  { id:'bidik',    n:'Bidik Jitu',       when:'roll', t:'Lemparan berikutnya jauh lebih patuh pada posisi jarum.' },
+  { id:'turbo',    n:'Turbo',            when:'roll', t:'Lemparan berikutnya maju 2 langkah lebih jauh.' },
+  { id:'rem',      n:'Rem Tangan',       when:'roll', t:'Lemparan berikutnya maju 2 langkah lebih pendek (paling sedikit 1).' },
+  { id:'ojek',     n:'Ojek Online',      when:'roll', t:'Ganti lemparan: langsung maju ke tanah kosong terdekat di depan.' },
+  { id:'tukar',    n:'Tukar Tempat',     when:'roll', t:'Ganti lemparan: tukar posisi dengan pasanganmu.' },
+  { id:'borong',   n:'Tukang Borongan',  when:'roll', t:'Satu kota acakmu (di bawah hotel) naik 1 tingkat gratis.' },
+  { id:'macet',    n:'Macet Total',      when:'roll', t:'Lemparan pasanganmu berikutnya maju 3 langkah lebih pendek.' },
+  { id:'mogok',    n:'Tukang Mogok',     when:'roll', t:'Pasanganmu tidak bisa membangun di giliran berikutnya.' },
+  { id:'siluman',  n:'Pajak Siluman',    when:'roll', t:'Pasanganmu menyetor Rp80rb ke kas Bebas Parkir.' },
+  { id:'dorong',   n:'Dorong Mundur',    when:'roll', t:'Pion pasanganmu mundur 3 petak.' },
+  { id:'jimat',    n:'Jimat Kejutan',    when:'roll', t:'Pojok Kejutan berikutnya untukmu pasti menguntungkan.' },
+  { id:'hoki',     n:'Kartu Hoki',       when:'roll', t:'Kartu Kesempatan atau Dana Umum berikutnya pasti kartu untung.' },
+  { id:'jaminan',  n:'Jaminan Sahabat',  when:'jail', t:'Keluar dari penjara gratis, lalu lempar dadu seperti biasa.' },
+  { id:'nego',     n:'Nego Sewa',        when:'bill', t:'Sewa ke pasanganmu kali ini dibayar setengah.' },
+  { id:'asuransi', n:'Asuransi',         when:'bill', t:'Tagihan kali ini dipotong Rp250rb.' },
+  { id:'putih',    n:'Pemutihan Pajak',  when:'bill', t:'Pajak kali ini gratis.' },
+  { id:'kupon',    n:'Kupon Diskon',     when:'buy',  t:'Harga beli tanah atau bangunan kali ini dipotong 30%.' },
+];
+const skillOf = id => SKILLS.find(k => k.id === id);
+const WHEN_LABEL = { roll:'sebelum melempar dadu', jail:'saat di penjara', bill:'saat ada tagihan', buy:'saat membeli atau membangun' };
 
 const COLORS = [
   { id:'merah', hex:'#e0352d', name:'Merah' },
@@ -509,6 +562,8 @@ const DICE = [
 const diceOf = pl => DICE.find(d => d.id === (pl && pl.dice)) || DICE[0];
 const sigmaOf = pl => 1.9 - .25 * diceOf(pl).ctrl;                 // ★1 1.65 · ★2 1.4 · ★3 1.15 · ★4 0.9
 const priceFor = (pl, amt) => Math.round(amt * (1 - .05 * diceOf(pl).disc));
+// harga yang benar-benar dibayar: diskon dadu, lalu Kupon Diskon kalau sedang aktif giliran ini
+const costFor = (s, pl, amt) => Math.round(priceFor(pl, amt) * (s.coupon ? .7 : 1));
 
 const fmt = v => {
   const a = Math.abs(v);
@@ -535,8 +590,8 @@ function shuffle(n) {
 function newGame(players, seq) {
   return {
     v:1, seq, phase:'roll', turn:0,
-    // par = kuota Ganjil/Genap (0 atau 1), terisi lagi setiap melewati START
-    players: players.map(p => ({ id:p.id, name:p.name, color:p.color, dice:diceOf(p).id, money:START_MONEY, pos:0, jail:0, free:0, out:false, par:1 })),
+    // par = kuota Ganjil/Genap (0 atau 1), terisi lagi setiap melewati START; cpu = dimainkan komputer
+    players: players.map(p => ({ id:p.id, name:p.name, color:p.color, dice:diceOf(p).id, money:START_MONEY, pos:0, jail:0, free:0, out:false, par:1, ...(p.cpu ? { cpu:true } : {}) })),
     own:{}, pot:0, deck:{ ch:shuffle(CH.length), cc:shuffle(CC.length), chI:0, ccI:0 },
     again:false, dbl:0, pending:null, lastDice:7, winner:null, endWhy:null,
     log:['Permainan dimulai. Semoga beruntung!'], fx:[],
@@ -566,7 +621,6 @@ function rentOf(s, i) {
   const t = T[i], o = s.own[i];
   if (!o) return 0;
   if (t.k === 'city') return o.lv > 0 ? t.rent[RENT_IDX[o.lv]] : t.rent[0] * (ownsGroup(s, o.o, t.g) ? 2 : 1);
-  if (t.k === 'rail') { const n = RAILS.filter(j => s.own[j] && s.own[j].o === o.o).length; return 25 * 2 ** (n - 1); }
   if (t.k === 'util') { const n = UTILS.filter(j => s.own[j] && s.own[j].o === o.o).length; return s.lastDice * (n === 2 ? 10 : 4); }
   return 0;
 }
@@ -617,6 +671,7 @@ function doSurprise(s, pi, depth) {
   const left = [...Array(total).keys()].filter(i => !seen.includes(i));
   const goodLeft = left.filter(i => i < nG), badLeft = left.filter(i => i >= nG);
   let good = Math.random() < .4 + .05 * diceOf(pl).luck;   // stat Hoki: 45/50/55/60% untung
+  if (pl.buf && pl.buf.luckSp) { good = true; delete pl.buf.luckSp; }   // skill Jimat Kejutan
   if (good && !goodLeft.length) good = false;
   if (!good && !badLeft.length) good = true;
   const from = good ? goodLeft : badLeft, idx = from[Math.floor(Math.random() * from.length)];
@@ -734,7 +789,10 @@ function drawCard(s, pi, k, depth) {
   const pl = s.players[pi], src = 'Kartu ' + (k === 'ch' ? 'Kesempatan' : 'Dana Umum');
   // Hoki ★1..★4: kartu untung berbobot 0.75..1.5, kartu rugi 1.25..0.5, kartu jalan-jalan tetap 1
   const L = diceOf(pl).luck - 2;
-  const weight = i => { const tag = CARD_TAG[deck[i].a[0]] || 'jalan'; return tag === 'untung' ? 1 + .25 * L : tag === 'rugi' ? 1 - .25 * L : 1; };
+  // skill Kartu Hoki: hanya kartu untung yang bisa keluar (kalau masih ada yang belum didapat)
+  const lucky = !!(pl.buf && pl.buf.luckCard);
+  if (lucky) delete pl.buf.luckCard;
+  const weight = i => { const tag = CARD_TAG[deck[i].a[0]] || 'jalan'; return lucky ? (tag === 'untung' ? 1 : 0) : tag === 'untung' ? 1 + .25 * L : tag === 'rugi' ? 1 - .25 * L : 1; };
   const card = deck[drawUnseen(pl, k, deck.length, weight)];
   const [a, x, y] = card.a;
   s.fx.push({ t:'card', k, text:card.t, tag:CARD_TAG[a] || 'jalan' });
@@ -745,7 +803,8 @@ function drawCard(s, pi, k, depth) {
     case 'to': go((x - pl.pos + 40) % 40); break;
     case 'back': go(-x); break;
     case 'fwd': go(x); break;
-    case 'nearRail': go(nearestAhead(pl.pos, RAILS)); break;
+    case 'nearSkill': go(nearestAhead(pl.pos, SKILL_TILES)); break;
+    case 'skill': gainSkill(s, pi); break;
     case 'nearUtil': go(nearestAhead(pl.pos, UTILS)); break;
     case 'swap': {
       const o = s.players[other(pi)];
@@ -793,13 +852,14 @@ function resolve(s, pi, depth = 0) {
   if (s.phase === 'over') return;
   const pl = s.players[pi], i = pl.pos, t = T[i];
   switch (t.k) {
-    case 'city': case 'rail': case 'util': {
+    case 'city': case 'util': {
       const o = s.own[i];
       if (!o) {
         if (pl.money >= priceFor(pl, t.p)) { s.phase = 'buy'; s.pending = i; }
         else { s.fx.push({ t:'msg', text:`Uang belum cukup untuk membeli ${t.n}.` }); log(s, `${pl.name} belum cukup uang untuk ${t.n}.`); }
       } else if (o.o === pi) {
-        if (t.k === 'city' && o.lv < LANDMARK_LV && pl.money >= priceFor(pl, stepCost(i, o.lv, o.lv + 1))) { s.phase = 'build'; s.pending = i; }
+        if (t.k === 'city' && o.lv < LANDMARK_LV && pl.buf && pl.buf.noBuild) s.fx.push({ t:'msg', text:'Tukangnya mogok! Belum bisa membangun giliran ini.' });
+        else if (t.k === 'city' && o.lv < LANDMARK_LV && pl.money >= priceFor(pl, stepCost(i, o.lv, o.lv + 1))) { s.phase = 'build'; s.pending = i; }
       } else {
         // tagihan sewa ditampilkan dulu; uang baru berpindah saat pemain menekan Bayar
         s.phase = 'bill'; s.pending = i;
@@ -823,20 +883,22 @@ function resolve(s, pi, depth = 0) {
       else s.fx.push({ t:'msg', text:'Tepat di START! Belum punya tanah untuk dinaikkan gratis.' });
       break;
     case 'surprise': doSurprise(s, pi, depth); break;
+    case 'skill': gainSkill(s, pi); break;
     case 'gojail': sendJail(s, pi); break;
     case 'ch': case 'cc': drawCard(s, pi, t.k, depth); break;
   }
 }
 function endTurn(s) {
   if (s.phase === 'over') return s;
-  s.pending = null;
+  s.pending = null; s.coupon = false;
   const pl = s.players[s.turn];
   if (s.again && pl.jail === 0) {
     s.again = false; s.phase = 'roll';
     s.fx.push({ t:'msg', text:`Dadu kembar! ${pl.name} main lagi.` });
     return s;
   }
-  s.again = false; s.dbl = 0;
+  s.again = false; s.dbl = 0; s.skUsed = false;
+  if (pl.buf) delete pl.buf.noBuild;   // efek Tukang Mogok berlaku satu giliran
   s.turn = other(s.turn);
   s.phase = s.players[s.turn].jail > 0 ? 'jail' : 'roll';
   return s;
@@ -883,15 +945,24 @@ function actRoll(s0, pref, p) {
     if (parityOf(pl) > 0) { pl.par = 0; log(s, `${pl.name} memakai kuota ${pref === 'ganjil' ? 'Ganjil' : 'Genap'}.`); }
     else pref = 'bebas';
   } else pref = 'bebas';
-  const r = rollDice(pref, p, sigmaOf(pl)), [a, b] = r.d, sum = a + b;
+  const buf = pl.buf || {};
+  const r = rollDice(pref, p, buf.aim ? .45 : sigmaOf(pl)), [a, b] = r.d, sum = a + b;
+  delete buf.aim;
   s.lastDice = sum;
   s.fx.push({ t:'dice', d:r.d, target:Math.round(r.target), pref, p:pi, g:p });
+  // efek skill Turbo / Rem Tangan / Macet Total diterapkan saat pion benar-benar berjalan
+  const steps = () => {
+    const d = (buf.plus ? 2 : 0) - (buf.minus ? 2 : 0) - (buf.slow ? 3 : 0);
+    if (d) s.fx.push({ t:'msg', text:d > 0 ? `Turbo! Maju ${sum + d} langkah.` : `${buf.slow ? 'Macet!' : 'Rem tangan!'} Maju ${Math.max(1, sum + d)} langkah saja.` });
+    delete buf.plus; delete buf.minus; delete buf.slow;
+    return Math.max(1, sum + d);
+  };
   if (s.phase === 'jail') {
     if (a === b) {
       pl.jail = 0; s.phase = 'roll';
       s.fx.push({ t:'msg', text:'Dadu kembar! Bebas dari penjara.' });
       log(s, `${pl.name} dapat kembar dan bebas dari penjara.`);
-      moveBy(s, pi, sum); resolve(s, pi); return finish(s);
+      moveBy(s, pi, steps()); resolve(s, pi); return finish(s);
     }
     pl.jail++;
     if (pl.jail > 3) {
@@ -899,7 +970,7 @@ function actRoll(s0, pref, p) {
       log(s, `${pl.name} gagal 3 kali, bayar denda lalu keluar.`);
       pay(s, pi, -2, JAIL_FINE, 'Denda penjara');
       if (s.phase === 'over') return s;
-      moveBy(s, pi, sum); resolve(s, pi); return finish(s);
+      moveBy(s, pi, steps()); resolve(s, pi); return finish(s);
     }
     s.fx.push({ t:'msg', text:`Belum kembar. Tetap di penjara (${pl.jail - 1}/3).` });
     s.phase = 'roll';
@@ -915,7 +986,7 @@ function actRoll(s0, pref, p) {
     }
     s.again = true;
   }
-  moveBy(s, pi, sum); resolve(s, pi);
+  moveBy(s, pi, steps()); resolve(s, pi);
   if (pl.jail > 0) s.again = false;
   return finish(s);
 }
@@ -925,7 +996,7 @@ function logBuild(s, pl, i, lv) {
 // Tahap 1: kunjungan pertama hanya membeli tanah. Bangunan baru boleh di kunjungan berikutnya.
 function actBuy(s0, yes) {
   const s = begin(s0), i = s.pending, pi = s.turn, pl = s.players[pi], t = T[i];
-  const price = priceFor(pl, t.p);   // stat Diskon dadu
+  const price = costFor(s, pl, t.p);   // stat Diskon dadu (+ Kupon Diskon)
   if (yes && !s.own[i] && pl.money >= price) {
     pl.money -= price; s.own[i] = { o:pi, lv:0 };
     s.fx.push({ t:'buy', p:pi, tile:i, amt:price });
@@ -939,7 +1010,7 @@ function actBuild(s0, yes, target) {
   const s = begin(s0), i = s.pending, pi = s.turn, pl = s.players[pi], o = s.own[i];
   if (yes && o && o.o === pi) {
     const ok = o.lv < MAX_BLD ? (target > o.lv && target <= MAX_BLD) : (o.lv === MAX_BLD && target === LANDMARK_LV);
-    const c = ok ? priceFor(pl, stepCost(i, o.lv, target)) : 0;
+    const c = ok ? costFor(s, pl, stepCost(i, o.lv, target)) : 0;
     if (ok && pl.money >= c) {
       pl.money -= c; o.lv = target;
       s.fx.push({ t:'build', p:pi, tile:i, lv:target, amt:c });
@@ -960,6 +1031,93 @@ function actJailPay(s0) {
 function actJailCard(s0) {
   const s = begin(s0), pl = s.players[s.turn];
   if (pl.free > 0) { pl.free--; pl.jail = 0; s.phase = 'roll'; s.fx.push({ t:'msg', text:'Kartu Bebas Penjara dipakai!' }); log(s, `${pl.name} memakai Kartu Bebas Penjara.`); }
+  return s;
+}
+
+/* ---- Kartu Skill ---- */
+// berhenti di petak Kartu Skill (atau dapat dari kartu): ambil satu skill yang belum pernah didapat pemain ini
+function gainSkill(s, pi) {
+  const pl = s.players[pi], sk = SKILLS[drawUnseen(pl, 'sk', SKILLS.length)];
+  if (!pl.sk) pl.sk = [];
+  const drop = pl.sk.length >= MAX_SK ? pl.sk.shift() : null;   // tas penuh: kartu paling lama dibuang
+  pl.sk.push(sk.id);
+  s.fx.push({ t:'skillGet', p:pi, id:sk.id, drop });
+  log(s, `${pl.name} mendapat Kartu Skill ${sk.n}${drop ? ` (${skillOf(drop).n} dibuang karena tas penuh)` : ''}.`);
+}
+// tanah kosong terdekat di depan, untuk skill Ojek Online
+function ojekTarget(s, pi) {
+  const pos = s.players[pi].pos;
+  for (let k = 1; k < 40; k++) { const i = (pos + k) % 40; if ('p' in T[i] && !s.own[i]) return i; }
+  return null;
+}
+function skillOk(s, pi, id) {
+  const sk = skillOf(id), pl = s.players[pi], op = s.players[other(pi)], b = s.bill;
+  if (!sk || s.phase === 'over' || s.turn !== pi || s.skUsed || !(pl.sk || []).includes(id)) return false;
+  const pb = pl.buf || {}, ob = op.buf || {};
+  switch (sk.when) {
+    case 'roll': if (s.phase !== 'roll') return false; break;
+    case 'jail': return s.phase === 'jail';
+    case 'bill': if (s.phase !== 'bill' || !b || b.amt <= 0) return false; break;
+    case 'buy': return (s.phase === 'buy' || s.phase === 'build') && !s.coupon;
+  }
+  switch (id) {
+    case 'tagih': return op.money > 0;
+    case 'parkir': return s.pot > 1;
+    case 'kuota': return parityOf(pl) < 1;
+    case 'bidik': return !pb.aim;
+    case 'turbo': case 'rem': return !pb.plus && !pb.minus;
+    case 'ojek': return ojekTarget(s, pi) != null;
+    case 'tukar': return !pl.jail && !op.jail && pl.pos !== op.pos;
+    case 'borong': return ownCities(s, pi, MAX_BLD - 1).length > 0;
+    case 'macet': return !ob.slow;
+    case 'mogok': return !ob.noBuild;
+    case 'siluman': return op.money > 0;
+    case 'dorong': return !op.jail;
+    case 'jimat': return !pb.luckSp;
+    case 'hoki': return !pb.luckCard;
+    case 'nego': return b.to >= 0;
+    case 'putih': return b.to === -2;
+  }
+  return true;
+}
+function actSkill(s0, id) {
+  if (!skillOk(s0, s0.turn, id)) return null;
+  const s = begin(s0), pi = s.turn, oi = other(pi), pl = s.players[pi], op = s.players[oi], sk = skillOf(id);
+  pl.sk.splice(pl.sk.indexOf(id), 1); s.skUsed = true;
+  const buf = pl.buf || (pl.buf = {}), obuf = op.buf || (op.buf = {});
+  s.fx.push({ t:'skill', p:pi, id });
+  log(s, `${pl.name} memakai skill ${sk.n}.`);
+  const gain = amt => { pl.money += amt; s.fx.push({ t:'gain', p:pi, amt, why:sk.n }); };
+  switch (id) {
+    case 'lembur': gain(150); break;
+    case 'bunga': gain(Math.min(200, Math.max(30, Math.round(pl.money * .1)))); break;
+    case 'tagih': pay(s, oi, pi, Math.min(100, op.money), sk.n); break;
+    case 'parkir': { const amt = Math.floor(s.pot / 2); s.pot -= amt; pl.money += amt; s.fx.push({ t:'gain', p:pi, amt, why:sk.n, fromPot:true }); break; }
+    case 'kuota': pl.par = 1; s.fx.push({ t:'msg', text:'Kuota Ganjil/Genap terisi lagi!' }); break;
+    case 'bidik': buf.aim = true; break;
+    case 'turbo': buf.plus = true; break;
+    case 'rem': buf.minus = true; break;
+    // dua skill ini menggantikan lemparan: pion pindah, petak barunya berlaku, lalu giliran selesai seperti biasa
+    case 'ojek': walkTo(s, pi, ojekTarget(s, pi)); resolve(s, pi, 1); return finish(s);
+    case 'tukar': {
+      const pa = op.pos, pb = pl.pos;
+      s.fx.push({ t:'swap', a:pi, b:oi, pa, pb });
+      pl.pos = pa; op.pos = pb;
+      resolve(s, pi, 1); return finish(s);
+    }
+    case 'borong': { const list = ownCities(s, pi, MAX_BLD - 1); freeUpgrade(s, pi, list[Math.floor(Math.random() * list.length)]); break; }
+    case 'macet': obuf.slow = true; break;
+    case 'mogok': obuf.noBuild = true; break;
+    case 'siluman': pay(s, oi, -2, Math.min(80, op.money), sk.n); break;
+    case 'dorong': s.fx.push({ t:'move', p:oi, from:op.pos, steps:-3 }); op.pos = (op.pos + 37) % 40; break;
+    case 'jimat': buf.luckSp = true; break;
+    case 'hoki': buf.luckCard = true; break;
+    case 'jaminan': pl.jail = 0; s.phase = 'roll'; s.fx.push({ t:'msg', text:'Bebas dari penjara!' }); break;
+    case 'nego': s.bill.amt = Math.ceil(s.bill.amt / 2); break;
+    case 'asuransi': s.bill.amt = Math.max(0, s.bill.amt - 250); break;
+    case 'putih': s.bill.amt = 0; break;
+    case 'kupon': s.coupon = true; break;
+  }
   return s;
 }
 function actEndGame(s0) {
@@ -1273,6 +1431,7 @@ function textBlock(x, text, cx, y, maxW, size, weight = 800, font = FB, color = 
 }
 function rr(x, X, Y, w, h, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); }
 
+const SKILL_C = '#0f8b8d';   // warna petak & kartu skill (sama dengan --sk di CSS)
 const ICONS = {
   train(x, cx, cy) {
     x.fillStyle = '#2a1d12'; rr(x, cx - 30, cy - 34, 60, 58, 12); x.fill();
@@ -1313,6 +1472,13 @@ const ICONS = {
     x.fillStyle = '#8fd3f0'; x.strokeStyle = '#2a1d12'; x.lineWidth = 4;
     x.beginPath(); x.moveTo(cx, cy - 8); x.lineTo(cx - 18, cy - 26); x.lineTo(cx - 10, cy - 38); x.lineTo(cx + 10, cy - 38); x.lineTo(cx + 18, cy - 26); x.closePath(); x.fill(); x.stroke();
   },
+  // kartu ungu dengan petir kuning, untuk petak Kartu Skill
+  skill(x, cx, cy) {
+    x.save(); x.translate(cx, cy); x.rotate(-.12);
+    x.fillStyle = SKILL_C; x.strokeStyle = '#2a1d12'; x.lineWidth = 5; rr(x, -28, -40, 56, 78, 9); x.fill(); x.stroke();
+    x.fillStyle = '#f2cf1d'; x.beginPath(); x.moveTo(6, -30); x.lineTo(-14, 4); x.lineTo(0, 4); x.lineTo(-6, 30); x.lineTo(16, -6); x.lineTo(2, -6); x.closePath(); x.fill();
+    x.lineWidth = 3; x.stroke(); x.restore();
+  },
   chest(x, cx, cy) {
     x.strokeStyle = '#2a1d12'; x.lineWidth = 5; x.fillStyle = '#2563b8';
     rr(x, cx - 40, cy - 10, 80, 46, 6); x.fill(); x.stroke();
@@ -1341,10 +1507,17 @@ function drawTile(x, i, X, Y, w, h) {
     textBlock(x, t.n.toUpperCase(), cx, Y + 34, w - 16, 20, 800);
     ICONS[t.ic](x, cx, Y + h * .55);
     x.font = `800 18px ${FB}`; x.fillStyle = INK; x.textAlign = 'center'; x.fillText('Bayar ' + fmt(t.amt), cx, Y + h - 20);
-  } else if (t.k === 'rail' || t.k === 'util') {
+  } else if (t.k === 'util') {
     textBlock(x, t.n.toUpperCase(), cx, Y + 34, w - 16, 19, 800);
     ICONS[t.ic](x, cx, Y + h * .56);
     x.font = `22px ${FD}`; x.fillStyle = INK; x.textAlign = 'center'; x.fillText(fmt(t.p), cx, Y + h - 20);
+  } else if (t.k === 'skill') {
+    const bh = h * .22;
+    x.fillStyle = SKILL_C; x.fillRect(X, Y, w, bh); x.strokeRect(X, Y, w, bh);
+    x.fillStyle = '#ffffff40'; x.fillRect(X + 3, Y + 3, w - 6, 8);
+    textBlock(x, 'KARTU SKILL', cx, Y + bh + 34, w - 14, 21, 800);
+    ICONS.skill(x, cx, Y + h * .62);
+    x.font = `800 15px ${FB}`; x.fillStyle = '#6a5640'; x.textAlign = 'center'; x.fillText('Simpan & pakai', cx, Y + h - 18);
   }
 }
 function drawCorner(x, i, X, Y, s) {
@@ -2245,7 +2418,10 @@ let DB = null, roomRef = null, roomCode = null, unsub = null;
 const myId = (() => { let id = lsGet('mn_dev'); if (!id) { id = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); lsSet('mn_dev', id); } return id; })();
 
 const hexesOf = st => st.players.map(p => colorHex(p.color));
-const isMine = pi => mode === 'local' || (S0 && S0.players[pi] && S0.players[pi].id === myId);
+const isCpu = pi => !!(S0 && S0.players[pi] && S0.players[pi].cpu);
+const isMine = pi => mode === 'local' ? !isCpu(pi) : !!(S0 && S0.players[pi] && S0.players[pi].id === myId);
+// simpanan main di satu perangkat: lawan komputer punya tempat sendiri supaya tidak menimpa permainan berdua
+const saveKey = st => st.players.some(p => p.cpu) ? 'mn_cpu' : 'mn_local';
 const myTurn = () => S0 && isMine(S0.turn);
 
 function syncAll(st) {
@@ -2268,7 +2444,11 @@ function syncAll(st) {
 
 function receive(st) {
   // simpanan dari versi lama memakai 5 tingkat; landmark sekarang tingkat 4
-  if (st && st.own) for (const k in st.own) if (st.own[k].lv > LANDMARK_LV) st.own[k].lv = LANDMARK_LV;
+  if (st && st.own) for (const k in st.own) {
+    if (st.own[k].lv > LANDMARK_LV) st.own[k].lv = LANDMARK_LV;
+    // simpanan lama: stasiun/pelabuhan/bandara kini petak Kartu Skill, harga belinya dikembalikan
+    if (T[k].k === 'skill') { const p = st.players[st.own[k].o]; if (p) p.money += 200; delete st.own[k]; }
+  }
   queue.push(st); pump();
 }
 async function pump() {
@@ -2294,6 +2474,7 @@ async function pump() {
   }
   playing = false;
   renderUI();
+  cpuTick();
 }
 
 async function playFx(list, st) {
@@ -2357,6 +2538,16 @@ async function playFx(list, st) {
         await sleep(600); break;
       }
       case 'card': await showCard(f); break;
+      case 'skillGet': {
+        const sk = skillOf(f.id);
+        await showCard({ k:'sk', name:sk.n, text:sk.t, drop:f.drop ? `Tas penuh: ${skillOf(f.drop).n} dibuang.` : '' });
+        break;
+      }
+      case 'skill':
+        sfx.whoosh();
+        stamp(skillOf(f.id).n.toUpperCase() + '!', SKILL_C);
+        toast(`${names[f.p]} memakai skill ${skillOf(f.id).n}`);
+        await sleep(900); break;
       case 'msg': toast(f.text); await sleep(1100); break;
       case 'over': sfx.win(); break;
     }
@@ -2370,6 +2561,7 @@ async function playFx(list, st) {
 function turnStatus() {
   if (playing) return { text:'sedang jalan', live:true };
   if (busy) return { text:'mengirim langkah', live:true };
+  if (cpuStatus) return { text:cpuStatus, live:true };
   const t = S0.pending != null ? T[S0.pending] : null;
   switch (S0.phase) {
     case 'roll': return { text:'giliran melempar' };
@@ -2386,8 +2578,8 @@ function chipHTML(st, k) {
   const p = st.players[k], props = Object.values(st.own).filter(o => o.o === k).length;
   const ts = st.phase !== 'over' && st.turn === k ? turnStatus() : null;
   const badge = ts ? `<span class="cstat${ts.live ? ' live' : ''}">${ts.live ? '<span class="dots light"><i></i><i></i><i></i></span>' : ''}<span>${esc(ts.text)}</span></span>` : '';
-  const meTag = mode === 'online' && p.id === myId ? '<span class="me">KAMU</span>' : '';
-  const meta = [`${props} properti`, parityOf(p) ? 'kuota G/G 1' : 'kuota G/G 0', p.free ? `${p.free} kartu bebas` : '', p.jail > 0 ? 'di penjara' : ''].filter(Boolean).join(' · ');
+  const meTag = mode === 'online' && p.id === myId ? '<span class="me">KAMU</span>' : p.cpu ? '<span class="me">KOMPUTER</span>' : '';
+  const meta = [`${props} properti`, parityOf(p) ? 'kuota G/G 1' : 'kuota G/G 0', p.sk && p.sk.length ? `${p.sk.length} skill` : '', p.free ? `${p.free} kartu bebas` : '', p.jail > 0 ? 'di penjara' : ''].filter(Boolean).join(' · ');
   const dc = diceOf(p), dIcon = `<span title="${dc.name}" aria-label="${dc.name}">${diceMini(dc, 14).replace('class="dmini', 'class="dmini dchip')}</span>`;
   return `<span class="tok"></span><div class="info"><span class="nm">${k === 1 ? meTag + dIcon : ''}${esc(p.name)}${k === 0 ? dIcon + meTag : ''}</span>${badge}
     <span class="money" id="money${k}">${fmt(shownMoney[k])}</span><span class="meta">${meta}</span></div>`;
@@ -2499,6 +2691,7 @@ function renderDock() {
       ${canRoll ? `<div class="lgr-hint">${quota
         ? 'Kuota Ganjil/Genap: 1 (boleh dilewati). Tahan tombol, lepas saat kamu yakin.'
         : 'Kuota Ganjil/Genap habis. Isi lagi dengan melewati START.'}</div>` : ''}
+      ${canRoll && p.sk && p.sk.length ? `<button class="skbtn" data-act="skills">⚡ KARTU SKILL <i>${p.sk.length}</i></button>` : ''}
     </div></div>`;
   drawArcTicks();
   setGauge(gaugeP);
@@ -2601,11 +2794,6 @@ function deedHTML(i, st, hlRow, curRow) {
       <table>${rows.map((x, k) => `<tr class="${k === hlRow ? 'hl' : k === curRow ? 'cur' : ''}"><td>${x[0]}</td><td>${fmt(x[1])}</td></tr>`).join('')}</table>
       <div class="foot">Rumah, vila, hotel ${fmt(g.h)} per tingkat (boleh sekaligus) · landmark ${fmt(g.h * 2)} setelah hotel</div></div>`;
   }
-  if (t.k === 'rail') {
-    return `<div class="deed"><div class="dh" style="--g:#2a1d12"><small>SURAT HAK MILIK</small><b>${esc(t.n.toUpperCase())}</b><span>Transportasi</span></div>
-      <table>${[1, 2, 3, 4].map(n => `<tr><td>Punya ${n} transportasi</td><td>${fmt(25 * 2 ** (n - 1))}</td></tr>`).join('')}</table>
-      <div class="foot">Stasiun, pelabuhan, dan bandara dihitung bersama</div></div>`;
-  }
   return `<div class="deed"><div class="dh" style="--g:#e9dcb6;--gt:#2a1d12"><small>SURAT HAK MILIK</small><b>${esc(t.n.toUpperCase())}</b><span>Perusahaan</span></div>
     <table><tr><td>Punya 1 perusahaan</td><td>4× angka dadu</td></tr><tr><td>Punya 2 perusahaan</td><td>10× angka dadu</td></tr></table></div>`;
 }
@@ -2614,19 +2802,41 @@ let selTier = 0, selFor = -1;
 function tierOptions(i) {
   const t = T[i], pl = S0.players[S0.turn];
   // harga sudah dipotong stat Diskon dadu pemain
-  if (S0.phase === 'buy') { const c = priceFor(pl, t.p); return [{ lv:0, cost:c, base:t.p, ok:c <= pl.money }]; }
+  if (S0.phase === 'buy') { const c = costFor(S0, pl, t.p); return [{ lv:0, cost:c, base:t.p, ok:c <= pl.money }]; }
   const from = S0.own[i].lv;
   const tiers = from >= MAX_BLD ? [LANDMARK_LV] : [...Array(MAX_BLD - from).keys()].map(k => from + 1 + k);
-  return tiers.map(lv => ({ lv, base:stepCost(i, from, lv), cost:priceFor(pl, stepCost(i, from, lv)) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
+  return tiers.map(lv => ({ lv, base:stepCost(i, from, lv), cost:costFor(S0, pl, stepCost(i, from, lv)) })).map(o => ({ ...o, ok:o.cost <= pl.money }));
 }
 // Baris petak untuk daftar pilihan: warna kelompok, nama, dan keadaannya sekarang
 function tileRow(i, right) {
   const t = T[i], o = S0.own[i];
-  const col = t.g ? GROUPS[t.g].c : t.k === 'rail' ? '#2a1d12' : t.k === 'util' ? '#e9dcb6' : '#f6ebcf';
+  const col = t.g ? GROUPS[t.g].c : t.k === 'skill' ? SKILL_C : t.k === 'util' ? '#e9dcb6' : '#f6ebcf';
   const state = !('p' in t) ? KIND_LABEL[t.k] : o ? `${S0.players[o.o].name} · ${t.k === 'city' ? (o.lv === LANDMARK_LV ? LANDMARKS[i][0] : LEVEL_NAMES[o.lv]) : 'milik'}` : `Kosong · ${fmt(t.p)}`;
   return `<span class="sw" style="background:${col}"></span><span class="tn">${esc(t.n)}<em>${esc(state)}</em></span>${right || ''}`;
 }
-const KIND_LABEL = { go:'Sudut START', jail:'Penjara', park:'Bebas Parkir', surprise:'Pojok Kejutan', ch:'Ambil kartu Kesempatan', cc:'Ambil kartu Dana Umum', tax:'Bayar pajak', gojail:'Masuk penjara' };
+const KIND_LABEL = { skill:'Ambil Kartu Skill', go:'Sudut START', jail:'Penjara', park:'Bebas Parkir', surprise:'Pojok Kejutan', ch:'Ambil kartu Kesempatan', cc:'Ambil kartu Dana Umum', tax:'Bayar pajak', gojail:'Masuk penjara' };
+// Kartu skill milik pemain yang sedang giliran: tombol Pakai aktif kalau waktunya cocok
+function skillReason(id) {
+  const sk = skillOf(id);
+  if (!myTurn() || playing || busy) return 'Tunggu giliranmu';
+  if (S0.skUsed) return 'Sudah pakai skill giliran ini';
+  if (skillOk(S0, S0.turn, id)) return '';
+  return sk.when === (S0.phase === 'build' ? 'buy' : S0.phase) ? 'Belum bisa dipakai sekarang' : `Dipakai ${WHEN_LABEL[sk.when]}`;
+}
+function openSkills() {
+  const p = S0.players[S0.turn], list = p.sk || [];
+  openModal(`<div class="sheet"><h2>Kartu Skill</h2><p class="sub">${esc(p.name)} menyimpan ${list.length} dari ${MAX_SK} kartu. Satu skill per giliran.</p>
+    <div class="sklist">${list.map(id => { const sk = skillOf(id), why = skillReason(id);
+      return `<div class="skc"><b>${esc(sk.n)}</b><p>${esc(sk.t)}</p><em>${why ? esc(why) : 'Bisa dipakai sekarang'}</em>
+        <button class="btn sk" data-act="useSkill" data-id="${id}" ${why ? 'disabled' : ''}>Pakai</button></div>`; }).join('') || '<p class="sub" style="margin:0">Belum punya kartu skill.</p>'}</div>
+    <div class="actions"><button class="btn" data-act="close">Tutup</button></div></div>`);
+}
+// tombol skill yang cocok dipakai di kartu tagihan / beli / bangun
+function skillRow() {
+  if (!myTurn()) return '';
+  const ok = (S0.players[S0.turn].sk || []).filter(id => skillOk(S0, S0.turn, id));
+  return ok.length ? `<div class="skrow">${ok.map(id => `<button class="btn sk" data-act="useSkill" data-id="${id}">⚡ ${esc(skillOf(id).n)}</button>`).join('')}</div>` : '';
+}
 // Kartu tagihan: sewa ke lawan atau pajak. Pemain melihat rinciannya dulu, lalu menekan Bayar.
 let billSoundFor = -1;
 function openBill() {
@@ -2642,11 +2852,11 @@ function openBill() {
     openModal(`<div class="sheet"><h2>Tagihan sewa</h2>
       <p class="sub">${esc(t.n)} milik <b style="color:${colorHex(owner.color)}">${esc(owner.name)}</b>${esc(lvl)}${t.k === 'util' ? ` · dadu ${S0.lastDice}` : ''}</p>
       ${deedHTML(i, S0, row)}
-      <div class="due"><span>Harus dibayar</span><b>${fmt(b.amt)}</b></div>${bal}${warn}
+      <div class="due"><span>Harus dibayar</span><b>${fmt(b.amt)}</b></div>${bal}${warn}${skillRow()}
       <div class="actions"><button class="btn red" data-act="payBill">Bayar ${fmt(b.amt)} ke ${esc(owner.name)}</button></div></div>`);
   } else {
     openModal(`<div class="sheet"><h2>${esc(t.n)}</h2><p class="sub">Uangnya masuk ke kas Bebas Parkir.</p>
-      <div class="due"><span>Harus dibayar</span><b>${fmt(b.amt)}</b></div>${bal}${warn}
+      <div class="due"><span>Harus dibayar</span><b>${fmt(b.amt)}</b></div>${bal}${warn}${skillRow()}
       <div class="actions"><button class="btn red" data-act="payBill">Bayar ${fmt(b.amt)}</button></div></div>`);
   }
 }
@@ -2663,16 +2873,16 @@ function openDecision() {
   const pills = opts.length > 1 ? `<div class="tiers" role="radiogroup" aria-label="Pilih tingkat bangunan">${opts.map(o =>
     `<button role="radio" aria-checked="${o.lv === selTier}" data-act="tier" data-lv="${o.lv}" ${o.ok ? '' : 'disabled'}><b>${name(o.lv)}</b><span>${fmt(o.cost)}</span></button>`).join('')}</div>` : '';
   const dc = diceOf(pl), saved = sel.base - sel.cost;
-  const disc = saved > 0 ? `<div class="discnote">${diceMini(dc, 16)}<span>${esc(dc.name)}: diskon ${dc.disc * 5}% · hemat <b>${fmt(saved)}</b> <s>${fmt(sel.base)}</s></span></div>` : '';
+  const disc = saved > 0 ? `<div class="discnote">${diceMini(dc, 16)}<span>${esc(dc.name)}: diskon ${dc.disc * 5}%${S0.coupon ? ' + Kupon Diskon 30%' : ''} · hemat <b>${fmt(saved)}</b> <s>${fmt(sel.base)}</s></span></div>` : '';
   const bal = `${disc}<div class="bal"><span>Uangmu</span><span>${fmt(pl.money)} → <b>${fmt(pl.money - sel.cost)}</b></span></div>`;
   if (S0.phase === 'buy') {
     openModal(`<div class="sheet"><h2>Tanah kosong!</h2><p class="sub">${esc(pl.name)} mendarat di ${esc(t.n)}.${t.k === 'city' ? ' Beli tanahnya dulu; bangunan bisa didirikan saat mampir lagi.' : ''}</p>
-      ${deedHTML(i, S0, t.k === 'city' ? 0 : -1)}${bal}
+      ${deedHTML(i, S0, t.k === 'city' ? 0 : -1)}${bal}${skillRow()}
       <div class="actions"><button class="btn ghost" data-act="buyNo">Lewati</button><button class="btn red" data-act="buyYes">Beli tanah ${fmt(sel.cost)}</button></div></div>`);
   } else {
     const o = S0.own[i], lm = selTier === LANDMARK_LV;
     const sub = lm ? `Kotamu sudah hotel. Dirikan landmark ${esc(LANDMARKS[i][0])}? Sewanya jadi paling mahal.` : 'Pilih mau dibangun sampai tingkat berapa.';
-    openModal(`<div class="sheet"><h2>Kembali ke ${esc(t.n)}</h2><p class="sub">${sub}</p>${deedHTML(i, S0, selTier + 1, o.lv ? o.lv + 1 : 0)}${pills}${bal}
+    openModal(`<div class="sheet"><h2>Kembali ke ${esc(t.n)}</h2><p class="sub">${sub}</p>${deedHTML(i, S0, selTier + 1, o.lv ? o.lv + 1 : 0)}${pills}${bal}${skillRow()}
       <div class="actions"><button class="btn ghost" data-act="buildNo">Nanti saja</button><button class="btn red" data-act="buildYes">${lm ? 'Dirikan landmark' : 'Bangun ' + LEVEL_NAMES[selTier].toLowerCase()} ${fmt(sel.cost)}</button></div></div>`);
   }
 }
@@ -2685,13 +2895,15 @@ function showCard(f) {
   return new Promise(res => {
     let done = false;
     const finish = () => { if (done) return; done = true; closeModal(true); res(); };
-    const title = sp ? 'POJOK KEJUTAN' : f.k === 'ch' ? 'KESEMPATAN' : 'DANA UMUM';
-    const back = sp ? '!?' : f.k === 'ch' ? '?' : CHEST_SVG;
+    const skc = f.k === 'sk';
+    const title = sp ? 'POJOK KEJUTAN' : skc ? 'KARTU SKILL' : f.k === 'ch' ? 'KESEMPATAN' : 'DANA UMUM';
+    const back = sp ? '!?' : skc ? '⚡' : f.k === 'ch' ? '?' : CHEST_SVG;
     const tag = sp ? `<span class="ctag ${f.good ? 'untung' : 'rugi'}">${f.good ? 'SANGAT MENGUNTUNGKAN' : 'SANGAT MERUGIKAN'}</span>`
+      : skc ? `<span class="ctag skill">DISIMPAN</span>${f.drop ? `<p class="drop">${esc(f.drop)}</p>` : ''}`
       : f.tag ? `<span class="ctag ${f.tag}">${TAG_LABEL[f.tag]}</span>` : '';
     openModal(`<div><div class="cardwrap" data-act="cardOk"><div class="gcard k-${f.k}${sp ? (f.good ? ' good' : ' bad') : ''}">
       <div class="face back">${back}</div>
-      <div class="face front"><small>${title}</small><p>${esc(f.text)}</p>${tag}</div></div></div>
+      <div class="face front"><small>${title}</small>${f.name ? `<h4>${esc(f.name)}</h4>` : ''}<p>${esc(f.text)}</p>${tag}</div></div></div>
       <div class="taphint">Ketuk kartu untuk lanjut</div></div>`);
     cardDone = finish;
     setTimeout(finish, reduced ? 2800 : sp ? 4600 : 3800);
@@ -2699,6 +2911,10 @@ function showCard(f) {
 }
 let cardDone = null;
 
+function skillSheetRows(k) {
+  const list = S0.players[k].sk || [];
+  return list.length ? `<h4>KARTU SKILL</h4>${list.map(id => `<div class="prow"><span class="sw" style="background:${SKILL_C}"></span><span>${esc(skillOf(id).n)}</span><em>${esc(WHEN_LABEL[skillOf(id).when])}</em></div>`).join('')}` : '';
+}
 function playerSheetRows(k) {
   const list = Object.keys(S0.own).map(Number).filter(i => S0.own[i].o === k);
   if (!list.length) return '<p class="sub" style="margin:0">Belum punya properti.</p>';
@@ -2713,8 +2929,8 @@ function openMenu(view = 'main') {
   if (!S0) return;
   if (view === 'main') {
     endConfirm = false;
-    openModal(`<div class="sheet"><h2>Menu</h2><p class="sub">${mode === 'online' ? 'Room ' + esc(roomCode || '') : 'Main berdua di satu perangkat'}</p><div class="menu-list">
-      <button class="btn ghost" data-act="mProps">Properti kita</button>
+    openModal(`<div class="sheet"><h2>Menu</h2><p class="sub">${mode === 'online' ? 'Room ' + esc(roomCode || '') : S0.players.some(p => p.cpu) ? 'Lawan komputer · mode mudah' : 'Main berdua di satu perangkat'}</p><div class="menu-list">
+      <button class="btn ghost" data-act="mProps">Properti &amp; kartu skill</button>
       <button class="btn ghost" data-act="mLog">Riwayat permainan</button>
       <button class="btn ghost" data-act="mRules">Cara main</button>
       <button class="btn ghost" data-act="mMusic">Musik latar: ${musicOn ? 'nyala' : 'mati'}</button>
@@ -2724,7 +2940,7 @@ function openMenu(view = 'main') {
       <button class="btn ghost" data-act="mExit">Kembali ke menu utama</button>
       <button class="btn" data-act="close">Tutup</button></div></div>`);
   } else if (view === 'props') {
-    openModal(`<div class="sheet"><h2>Properti</h2><div class="plist">${[0, 1].map(k => `<div><h3 style="--c:${colorHex(S0.players[k].color)}"><i></i>${esc(S0.players[k].name)} · kekayaan ${fmt(worth(S0, k))}</h3>${playerSheetRows(k)}</div>`).join('')}</div>
+    openModal(`<div class="sheet"><h2>Properti</h2><div class="plist">${[0, 1].map(k => `<div><h3 style="--c:${colorHex(S0.players[k].color)}"><i></i>${esc(S0.players[k].name)} · kekayaan ${fmt(worth(S0, k))}</h3>${playerSheetRows(k)}${skillSheetRows(k)}</div>`).join('')}</div>
       <div class="actions"><button class="btn" data-act="close">Tutup</button></div></div>`);
   } else if (view === 'log') {
     openModal(`<div class="sheet"><h2>Riwayat</h2><div class="log">${S0.log.map(l => `<p>${esc(l)}</p>`).join('')}</div><div class="actions"><button class="btn" data-act="close">Tutup</button></div></div>`);
@@ -2740,6 +2956,7 @@ const RULES_HTML = `<div class="rules">
   <h3>Penjara</h3><p>Keluar dengan bayar ${fmt(JAIL_FINE)}, pakai Kartu Bebas Penjara, atau lempar dadu kembar (maksimal 3 percobaan).</p>
   <h3>Bebas Parkir</h3><p>Semua pajak, denda, dan biaya kartu masuk ke kas. Siapa yang berhenti di sini mengambil semuanya, lalu boleh pergi ke petak mana saja. Pion berjalan maju, jadi kalau melewati START tetap dapat gaji.</p>
   <h3>Pojok Kejutan</h3><p>Undian aksi besar: bisa sangat menguntungkan (misalnya langsung jadi landmark gratis) atau sangat merugikan (misalnya diculik ke kota termahal lawan). Tanah dan bangunan tidak pernah hilang karena kejutan.</p>
+  <h3>Kartu Skill</h3><p>Empat petak di tengah tiap sisi papan adalah petak Kartu Skill. Berhenti di sana: dapat satu kartu skill (ada ${SKILLS.length} macam) yang disimpan, paling banyak ${MAX_SK}. Pakai lewat tombol Kartu Skill sebelum melempar, atau langsung dari kartu tagihan dan kartu beli/bangun. Satu skill per giliran.</p>
   <h3>Info daerah</h3><p>Ketuk petak mana saja di papan untuk melihat pemilik, tingkat bangunan, dan sewanya.</p>
   <h3>Pilihan dadu</h3><p>Setiap pemain memilih satu dadu di awal. Tiap dadu punya total 6 bintang: <b>Kontrol</b> (hasil makin patuh pada posisi jarum), <b>Hoki</b> (peluang untung di Pojok Kejutan 45–60% dan kartu untung lebih sering keluar), dan <b>Diskon</b> (potongan 5–20% untuk beli tanah dan membangun).</p>
   <h3>Menang</h3><p>Lawan bangkrut, atau akhiri permainan kapan saja dan bandingkan total kekayaan.</p></div>`;
@@ -2762,12 +2979,195 @@ function renderUI() {
 /* ---- Commit langkah ---- */
 async function commit(ns) {
   if (!ns) return;
-  if (mode === 'local') { lsSet('mn_local', JSON.stringify(ns)); receive(ns); return; }
+  if (mode === 'local') {
+    lsSet(saveKey(ns), JSON.stringify(ns));
+    cpuPrefetch(ns);   // komputer mulai berpikir selagi animasi langkahnya masih diputar
+    receive(ns); return;
+  }
   if (!roomRef) return;
   busy = true; renderHUD(); renderDock();
   try { await roomRef.set(ns); }
   catch (e) { toast(serverErr(e, 'Langkah gagal terkirim. Cek koneksi lalu coba lagi.')); }
   busy = false; renderHUD(); renderDock();
+}
+
+/* ---- Lawan komputer (mode mudah) ----
+   Keputusan penting (beli, bangun, upgrade di START, pergi bebas) ditanyakan ke agent Hermes lewat /api/ai.
+   Yang dikirim hanya angka dan nomor petak. Kalau Hermes lambat atau tidak ada, dipakai otak bawaan di bawah. */
+const AI_URL = '/api/ai', AI_WAIT = 15000;
+let aiReady = null;          // null = belum dicek
+let cpuStatus = null;        // teks status di kartu nama komputer saat ia berpikir
+let cpuFor = null;           // state yang sedang dikerjakan komputer
+const cpuPlans = new WeakMap();   // state -> Promise jawaban Hermes
+async function aiCheck() {
+  if (!/^https?:$/.test(location.protocol) || window.claude) return (aiReady = false);
+  try { const r = await fetch(AI_URL, { cache:'no-store' }); aiReady = r.ok && !!(await r.json()).ready; }
+  catch (e) { aiReady = false; }
+  return aiReady;
+}
+async function askAi(q) {
+  if (!q || !(aiReady || (aiReady === null && await aiCheck()))) return null;
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), AI_WAIT);
+  try {
+    const r = await fetch(AI_URL, { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify(q), signal:ctl.signal });
+    const j = await r.json();
+    return j && j.ok ? j : null;
+  } catch (e) { return null; }
+  finally { clearTimeout(timer); }
+}
+const CPU_DECIDE = ['buy', 'build', 'startUp', 'travel'];
+// pilihan bangun yang terjangkau: [{lv, cost, rent}]
+function cpuTiers(st, i) {
+  const pl = st.players[st.turn], from = st.own[i].lv;
+  const tiers = from >= MAX_BLD ? [LANDMARK_LV] : [...Array(MAX_BLD - from).keys()].map(k => from + 1 + k);
+  return tiers.map(lv => ({ lv, cost:costFor(st, pl, stepCost(i, from, lv)), rent:T[i].rent[RENT_IDX[lv]] })).filter(o => o.cost <= pl.money);
+}
+// nilai kasar tiap tujuan pergi bebas (makin besar makin menarik)
+function cpuTravelOpts(st) {
+  const pi = st.turn, pl = st.players[pi];
+  return T.map((t, i) => i).filter(i => canTravel(i) && i !== pl.pos).map(i => {
+    const t = T[i], o = st.own[i], salary = i < pl.pos;
+    let tag = 'lain', cost = 0, rent = 0, score = 0;
+    if ('p' in t) {
+      if (!o) { tag = 'kosong'; cost = priceFor(pl, t.p); score = cost <= pl.money - 100 ? 40 + t.p / 10 : -10; }
+      else if (o.o === pi) { tag = 'milikku'; if (t.k === 'city' && o.lv < LANDMARK_LV) { cost = priceFor(pl, stepCost(i, o.lv, o.lv + 1)); score = cost <= pl.money - 100 ? 50 + o.lv * 10 : 5; } }
+      else { tag = 'lawan'; rent = rentOf(st, i); score = -rent / 4; }
+    } else if (t.k === 'ch' || t.k === 'cc') { tag = 'kartu'; score = 15; }
+    else if (t.k === 'skill') { tag = 'skill'; score = 30; }
+    else if (t.k === 'tax') { tag = 'pajak'; cost = t.amt; score = -cost / 4; }
+    else if (t.k === 'go') { tag = 'start'; score = ownCities(st, pi, MAX_BLD).length ? 60 : 20; }
+    else if (t.k === 'jail') { tag = 'penjara'; score = 0; }
+    if (salary) score += 45;
+    return { tile:i, tag, cost, rent, salary, score };
+  }).sort((a, b) => b.score - a.score);
+}
+// pertanyaan untuk Hermes, hanya angka (tanpa nama pemain)
+function cpuQuery(st) {
+  const pi = st.turn, pl = st.players[pi], op = st.players[other(pi)], i = st.pending;
+  const base = { kind:st.phase, money:pl.money, oppMoney:op.money, myProps:propsOf(st, pi).length, oppProps:propsOf(st, other(pi)).length };
+  switch (st.phase) {
+    case 'buy': return { ...base, tile:i, opts:[{ cost:costFor(st, pl, T[i].p), rent:T[i].k === 'city' ? T[i].rent[0] : 0 }] };
+    case 'build': { const opts = cpuTiers(st, i); return opts.length ? { ...base, tile:i, opts } : null; }
+    case 'startUp': return { ...base, tile:0, opts:ownCities(st, pi, MAX_BLD).map(j => ({ tile:j, lv:st.own[j].lv, rent:rentOf(st, j), next:T[j].rent[RENT_IDX[st.own[j].lv + 1]] }))
+      .sort((a, b) => (b.next - b.rent) - (a.next - a.rent)).slice(0, 12) };
+    case 'travel': return { ...base, opts:cpuTravelOpts(st).slice(0, 10).map(({ score, ...o }) => o) };
+  }
+  return null;
+}
+function cpuPrefetch(st) {
+  if (st.phase !== 'over' && st.players[st.turn].cpu && CPU_DECIDE.includes(st.phase) && !cpuPlans.has(st)) cpuPlans.set(st, askAi(cpuQuery(st)));
+}
+// otak bawaan mode mudah: hemat seperlunya, kadang ragu-ragu
+const pickTop = (list, n) => list[Math.floor(Math.random() * Math.min(n, list.length))];
+function cpuGuess(st) {
+  const pi = st.turn, pl = st.players[pi], i = st.pending;
+  switch (st.phase) {
+    case 'buy': { const c = costFor(st, pl, T[i].p); return { buy:pl.money - c >= 150 && Math.random() < .85 }; }
+    case 'build': {
+      const opts = cpuTiers(st, i).filter(o => pl.money - o.cost >= 200);
+      if (!opts.length || Math.random() < .2) return { lv:0 };
+      return { lv:(Math.random() < .3 && opts.length > 1 ? opts[opts.length - 2] : opts[opts.length - 1]).lv };
+    }
+    case 'startUp': { const q = cpuQuery(st); return { tile:q.opts.length ? pickTop(q.opts, 2).tile : null }; }
+    case 'travel': { const good = cpuTravelOpts(st).filter(o => o.score > 0); return { tile:good.length ? pickTop(good, 3).tile : null }; }
+  }
+  return {};
+}
+// jawaban (Hermes atau tebakan) -> state baru; jawaban yang tidak sah diganti tebakan bawaan
+function cpuApply(st, d) {
+  const g = () => cpuGuess(st);
+  switch (st.phase) {
+    case 'buy': return actBuy(st, typeof d.buy === 'boolean' ? d.buy : g().buy);
+    case 'build': {
+      const ok = lv => lv === 0 || cpuTiers(st, st.pending).some(o => o.lv === lv);
+      const lv = ok(d.lv) ? d.lv : g().lv;
+      return actBuild(st, lv > 0, lv);
+    }
+    case 'startUp': case 'travel': {
+      const okList = st.phase === 'travel' ? cpuTravelOpts(st).map(o => o.tile) : ownCities(st, st.turn, MAX_BLD);
+      const tile = d.tile === null || okList.includes(d.tile) ? d.tile : g().tile;
+      return st.phase === 'travel' ? actTravel(st, tile) : actStartUp(st, tile);
+    }
+  }
+  return null;
+}
+let sayT = 0;
+function cpuSay(text) {
+  const chip = $('#chip' + S0.turn), el = $('#cpuSay');
+  if (!chip || !text) return;
+  el.innerHTML = `<small>HERMES</small>${esc(text)}`;
+  const r = chip.getBoundingClientRect(), below = r.top < innerHeight / 2;
+  el.style.left = Math.max(8, Math.min(innerWidth - 238, r.left + r.width / 2 - 115)) + 'px';
+  el.style.top = below ? r.bottom + 8 + 'px' : 'auto';
+  el.style.bottom = below ? 'auto' : innerHeight - r.top + 8 + 'px';
+  el.classList.add('show'); clearTimeout(sayT); sayT = setTimeout(() => el.classList.remove('show'), 4500);
+}
+// kartu skill yang mau dipakai komputer sekarang (mode mudah: sesekali, tidak selalu di saat terbaik)
+function cpuSkill(st) {
+  const pi = st.turn, pl = st.players[pi];
+  const want = id => {
+    switch (id) {
+      case 'jaminan': return 1;
+      case 'nego': case 'asuransi': case 'putih': return st.bill.amt >= 150 ? 1 : 0;
+      case 'kupon': {
+        const c = st.phase === 'buy' ? priceFor(pl, T[st.pending].p) : ((cpuTiers(st, st.pending).slice(-1)[0] || {}).cost || 0);
+        return c >= 200 ? .8 : 0;
+      }
+      case 'kuota': return .5;
+      case 'ojek': return pl.money >= 300 ? .35 : 0;
+      case 'tukar': return .15;
+    }
+    return .3;
+  };
+  return (pl.sk || []).filter(id => skillOk(st, pi, id)).find(id => Math.random() < want(id)) || null;
+}
+async function cpuMove(st) {
+  const pi = st.turn, pl = st.players[pi];
+  const sk = cpuSkill(st);
+  if (sk) {
+    cpuStatus = 'memilih kartu skill'; renderHUD();
+    await sleep(900);
+    return actSkill(st, sk);
+  }
+  switch (st.phase) {
+    case 'roll': case 'jail': {
+      cpuStatus = st.phase === 'jail' ? 'memikirkan cara keluar' : 'bersiap melempar'; renderHUD();
+      await sleep(900);
+      if (st.phase === 'jail') {
+        if (pl.free > 0) return actJailCard(st);
+        if (pl.money >= 400 && Math.random() < .5) return actJailPay(st);
+      }
+      // mode mudah: kuota Ganjil/Genap dipakai sesekali saja, posisi jarum acak
+      const pref = parityOf(pl) && Math.random() < .3 ? (Math.random() < .5 ? 'ganjil' : 'genap') : 'bebas';
+      return actRoll(st, pref, .12 + Math.random() * .76);
+    }
+    case 'bill':
+      cpuStatus = 'membayar tagihan'; renderHUD();
+      await sleep(1200);
+      return actPayBill(st);
+  }
+  if (!CPU_DECIDE.includes(st.phase)) return null;
+  cpuStatus = 'sedang berpikir'; renderHUD();
+  cpuPrefetch(st);
+  const [ans] = await Promise.all([cpuPlans.get(st), sleep(1100)]);
+  const d = ans || cpuGuess(st);
+  // pilihan tempat diperlihatkan dulu di papan sebelum dijalankan
+  if ((st.phase === 'travel' || st.phase === 'startUp') && d.tile != null && S0 === st) {
+    showPick(st.phase, pickEligible(), d.tile); await sleep(1000);
+  }
+  if (ans && ans.say && S0 === st) cpuSay(ans.say);
+  return cpuApply(st, d);
+}
+async function cpuTick() {
+  if (mode !== 'local' || !S0 || S0.phase === 'over' || playing || !isCpu(S0.turn) || cpuFor === S0) return;
+  const st = cpuFor = S0;
+  let ns = null;
+  try { ns = await cpuMove(st); } catch (e) { console.error(e); }
+  cpuStatus = null;
+  // permainan berganti, diakhiri, atau keluar ke menu selagi komputer berpikir: buang langkahnya
+  if (S0 !== st || mode !== 'local' || playing || queue.length) { if (S0 === st) cpuFor = null; renderHUD(); return; }
+  if (!ns) { renderHUD(); return; }
+  commit(ns);
 }
 
 /* ---- Event ---- */
@@ -2801,6 +3201,8 @@ document.addEventListener('click', e => {
     case 'buildYes': closeModal(true); commit(actBuild(S0, true, selTier)); break;
     case 'buildNo': closeModal(true); commit(actBuild(S0, false)); break;
     case 'reopen': openDecision(); break;
+    case 'skills': openSkills(); break;
+    case 'useSkill': if (myTurn() && !playing && !busy) { closeModal(true); commit(actSkill(S0, b.dataset.id)); } break;
     case 'jailPay': if (myTurn() && !playing) commit(actJailPay(S0)); break;
     case 'jailCard': if (myTurn() && !playing) commit(actJailCard(S0)); break;
     case 'cardOk': if (cardDone) { cardDone(); cardDone = null; } break;
@@ -2869,6 +3271,7 @@ function tileDesc(i) {
     case 'ch': return `Ambil satu kartu Kesempatan. Ada ${CH.length} kartu: kebanyakan jalan-jalan, ada untung, ada rugi.`;
     case 'cc': return `Ambil satu kartu Dana Umum. Ada ${CC.length} kartu: kebanyakan soal uang sehari-hari.`;
     case 'tax': return `Bayar ${fmt(t.amt)}. Uangnya masuk ke kas Bebas Parkir.`;
+    case 'skill': return `Ambil satu Kartu Skill (ada ${SKILLS.length} macam). Simpan paling banyak ${MAX_SK} kartu dan pakai saat waktunya cocok, satu skill per giliran.`;
   }
   return '';
 }
@@ -2928,12 +3331,14 @@ function renderLobby() {
   const err = lobbyErr ? `<p class="err">${esc(lobbyErr)}</p>` : '';
   let h = '';
   if (lobbyView === 'home') {
-    const savedLocal = lsGet('mn_local'), savedRoom = lsGet('mn_room');
+    const savedLocal = lsGet('mn_local'), savedCpu = lsGet('mn_cpu'), savedRoom = lsGet('mn_room');
     const onBtn = onlineState === 'ready';
     h = `${logo}<p class="tag">Papan klasik masa kecil dengan kota-kota Indonesia. Dadunya pakai bar ala Let's Get Rich.</p>
       ${savedLocal ? `<button class="ticket" data-act="l:resumeLocal"><b>Lanjutkan permainan</b><span>Di perangkat ini, dari langkah terakhir</span></button>` : ''}
+      ${savedCpu ? `<button class="ticket" data-act="l:resumeCpu"><b>Lanjutkan lawan komputer</b><span>Dari langkah terakhir melawan Hermes</span></button>` : ''}
       ${savedRoom && onBtn ? `<button class="ticket" data-act="l:resumeRoom"><b>Kembali ke room ${esc(savedRoom)}</b><span>Lanjutkan permainan online</span></button>` : ''}
       <button class="ticket primary" data-act="l:goOnline" ${onBtn ? '' : 'disabled'}><b>Main online</b><span>Masing-masing pakai HP sendiri</span></button>
+      <button class="ticket" data-act="l:goCpu"><b>Lawan komputer</b><span>Melawan Hermes, mode mudah</span></button>
       <button class="ticket" data-act="l:goLocal"><b>Main berdua di satu HP</b><span>Gantian pegang perangkat</span></button>
       <div class="lobtoggles"><button class="musictoggle" data-music aria-pressed="${musicOn}">♪ Musik: ${musicOn ? 'nyala' : 'mati'}</button>
       ${FS_OK ? `<button class="musictoggle" data-fs>⛶ Layar penuh</button>` : ''}</div>
@@ -2945,6 +3350,13 @@ function renderLobby() {
     h = `${logo}<div class="panel"><h3>Pemain 1</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color', prefs.color2)}${dicePicker('dice')}</div>
       <div class="panel"><h3>Pemain 2</h3><input type="text" id="inName2" maxlength="14" placeholder="Nama pasangan" value="${esc(prefs.name2)}">${swatches('color2', prefs.color)}${dicePicker('dice2')}</div>
       ${err}<button class="ticket primary" data-act="l:startLocal"><b>Mulai main</b><span>Uang awal ${fmt(START_MONEY)} per orang</span></button>
+      <button class="back" data-act="l:home">← Kembali</button>`;
+  } else if (lobbyView === 'cpu') {
+    const brain = aiReady ? 'Otaknya agent Hermes di server, jadi kadang butuh beberapa detik untuk berpikir.'
+      : aiReady === null ? 'Memeriksa otak Hermes…' : 'Hermes tidak bisa dihubungi dari alamat ini, jadi komputer memakai otak bawaan.';
+    h = `${logo}<div class="panel"><h3>Kamu</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color')}${dicePicker('dice')}</div>
+      <div class="panel"><h3>Lawan: Hermes · mode mudah</h3><p class="sub" style="margin:0;font-size:13px;color:var(--ink-2)">${brain}</p></div>
+      ${err}<button class="ticket primary" data-act="l:startCpu"><b>Mulai lawan komputer</b><span>Uang awal ${fmt(START_MONEY)} per pemain</span></button>
       <button class="back" data-act="l:home">← Kembali</button>`;
   } else if (lobbyView === 'online') {
     h = `${logo}<div class="panel"><h3>Kamu</h3><input type="text" id="inName" maxlength="14" placeholder="Nama kamu" value="${esc(prefs.name)}">${swatches('color')}${dicePicker('dice')}</div>
@@ -2978,6 +3390,7 @@ function enterGame() {
 function exitToLobby() {
   if (unsub) { unsub(); unsub = null; }
   roomRef = null; mode = null; S0 = null; shownSeq = -1; queue.length = 0;
+  cpuStatus = null; $('#cpuSay').classList.remove('show');
   pawns.forEach(p => p.visible = false); dice.forEach(d => d.visible = false);
   for (const k in markers) setOwner(+k, -1, 0, []);
   lobbyView = 'home'; lobbyErr = '';
@@ -3009,9 +3422,22 @@ async function lobbyAct(a, b) {
       lsSet('mn_local', JSON.stringify(st));
       S0 = null; shownSeq = -1; enterGame(); receive(st); break;
     }
-    case 'resumeLocal': {
-      try { const st = JSON.parse(lsGet('mn_local')); mode = 'local'; S0 = null; shownSeq = -1; enterGame(); receive(st); }
-      catch (e) { lsDel('mn_local'); renderLobby(); }
+    case 'goCpu':
+      lobbyView = 'cpu'; renderLobby();
+      if (aiReady === null) aiCheck().then(() => { if (lobbyView === 'cpu') renderLobby(); });
+      break;
+    case 'startCpu': {
+      keepName();
+      mode = 'local';
+      const cpuColor = (COLORS.find(c => c.id === 'biru' && c.id !== prefs.color) || COLORS.find(c => c.id !== prefs.color)).id;
+      const st = newGame([{ id:'p0', name:prefs.name || 'Pemain 1', color:prefs.color, dice:prefs.dice }, { id:'cpu', name:'Hermes', color:cpuColor, dice:'klasik', cpu:true }], 1);
+      lsSet('mn_cpu', JSON.stringify(st));
+      S0 = null; shownSeq = -1; enterGame(); receive(st); break;
+    }
+    case 'resumeLocal': case 'resumeCpu': {
+      const key = a === 'resumeCpu' ? 'mn_cpu' : 'mn_local';
+      try { const st = JSON.parse(lsGet(key)); mode = 'local'; S0 = null; shownSeq = -1; enterGame(); receive(st); }
+      catch (e) { lsDel(key); renderLobby(); }
       break;
     }
     case 'create': {

@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+const { handleAi } = require('./ai');
 
 const PORT = +process.env.PORT || 3077;
 const HOST = process.env.HOST || '127.0.0.1';
@@ -83,6 +84,8 @@ function takeToken(ws) {
 // STATIC_FILE (opsional, untuk dev lokal): sajikan index.html di "/". Di VPS halaman disajikan nginx.
 const STATIC_FILE = process.env.STATIC_FILE;
 const server = http.createServer((req, res) => {
+  // otak komputer untuk mode Lawan Komputer (lihat ai.js)
+  if (req.url === '/api/ai') return handleAi(req, res, ipOf(req));
   if (STATIC_FILE && (req.url === '/' || req.url.startsWith('/?'))) {
     return fs.readFile(STATIC_FILE, (err, buf) => {
       res.writeHead(err ? 404 : 200, { 'content-type':'text/html; charset=utf-8' });
