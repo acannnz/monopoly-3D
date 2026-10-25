@@ -55,6 +55,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .ibtn.music .slash{display:none}
 .ibtn.music[aria-pressed="false"]{color:var(--paper-3);opacity:.75}
 .ibtn.music[aria-pressed="false"] .slash{display:inline}
+.lobtoggles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .musictoggle{align-self:center;background:none;border:1.5px solid #f6ebcf55;color:var(--paper-2);border-radius:999px;padding:6px 14px;font-weight:700;font-size:12.5px}
 .pot{font-size:10.5px;font-weight:700;color:var(--paper-3);text-align:center;line-height:1.2;max-width:96px}
 .pot b{display:block;font-family:var(--font-display);font-weight:400;font-size:13px;color:var(--emas)}
@@ -142,7 +143,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 @keyframes bop{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
 
 /* ---------- Modal ---------- */
-#modal{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:#0008;backdrop-filter:blur(2px);
+/* flex + margin:auto: berada di tengah kalau muat, dan tidak terpotong atasnya kalau layar pendek (landscape) */
+#modal>*{margin:auto}
+#modal{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;background:#0008;backdrop-filter:blur(2px);
   padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));overflow-y:auto}
 .sheet{width:min(360px,100%);background:var(--paper);color:var(--ink);border-radius:18px;padding:16px;box-shadow:var(--shadow);animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
 @keyframes pop{from{transform:scale(.85) translateY(20px);opacity:0}to{transform:none;opacity:1}}
@@ -255,6 +258,42 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
 .err{color:var(--merah);font-size:12.5px;font-weight:700;margin:0}
 @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.chip .money{font-size:15px}.chip{padding:7px 8px;gap:6px}.tok{width:24px;height:24px}}
+/* tombol layar penuh: di HUD hanya saat landscape (di portrait ada di menu supaya chip tidak sempit) */
+#btnFull{display:none}
+.ibtn[aria-pressed="true"]{background:var(--emas);color:var(--ink)}
+
+/* ---------- Landscape HP (layar pendek), gaya Get Rich ----------
+   papan belah ketupat memenuhi layar, tombol dadu di tengah papan, chip pemain di pojok kiri atas & kanan bawah */
+@media (orientation: landscape) and (max-height: 540px) {
+  #hud{inset:0;padding:0;display:block}
+  #hud>*{position:absolute}
+  #chip0{top:calc(env(safe-area-inset-top,0px) + 8px);left:max(8px,env(safe-area-inset-left,0px));width:min(190px,26vw)}
+  #chip1{bottom:calc(env(safe-area-inset-bottom,0px) + 8px);right:max(8px,env(safe-area-inset-right,0px));width:min(190px,26vw)}
+  #hud .mid{top:calc(env(safe-area-inset-top,0px) + 8px);right:max(8px,env(safe-area-inset-right,0px));align-items:flex-end;gap:6px}
+  #btnFull{display:grid}
+  .chip{padding:7px 9px;gap:7px}
+  .chip.active{transform:scale(1.04)}
+  .chip .money{font-size:16px}
+  .tok{width:24px;height:24px}
+  .pot{background:#1b120c99;border-radius:10px;padding:5px 9px;text-align:right}
+  /* dok melayang di tengah papan; hanya kartunya yang bisa disentuh, sisanya tembus ke papan */
+  #dock{left:50%;top:52%;bottom:auto;transform:translate(-50%,-50%);width:min(280px,42vw);padding:0;pointer-events:none}
+  #dock .dcard{pointer-events:auto;gap:4px}
+  .arc{max-width:220px}
+  .lgr-row{margin-top:-20px;gap:6px;max-width:260px}
+  .roll.round{width:76px;height:76px;font-size:15px}
+  .pill{font-size:11.5px;padding:8px 2px}
+  .lgr-hint{font-size:9.5px;margin-top:4px}
+  /* saat pion berjalan, tombol jadi transparan supaya pion yang diikuti kamera tetap terlihat */
+  .lgr.idle{opacity:.28;transition:opacity .3s}
+  .dpill{font-size:11.5px;padding:5px 11px}
+  .pickdock{width:100%}
+  .jailrow p{flex-basis:100%}
+  #toast{top:calc(env(safe-area-inset-top,0px) + 8px)}
+  #diceResult{top:calc(env(safe-area-inset-top,0px) + 50px)}
+  #stamp{top:30%;font-size:clamp(28px,7vh,48px)}
+  .cardwrap{width:min(300px,70vh * 1.55)}
+}
 </style>
 
 <div id="app">
@@ -265,6 +304,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--emas);outline-o
       <div class="iconrow">
         <button class="ibtn" id="btnCam" aria-label="Atur ulang kamera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
         <button class="ibtn music" data-music aria-pressed="true" aria-label="Musik latar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path class="slash" d="M3 3l18 18"/></svg></button>
+        <button class="ibtn" id="btnFull" data-fs aria-pressed="false" aria-label="Layar penuh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
         <button class="ibtn" id="btnMenu" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
       <div class="pot" id="pot"></div>
@@ -527,9 +567,18 @@ function freeUpgrade(s, pi, i) {
 const canTravel = i => i !== 20 && i !== 30;   // tidak bisa memilih Bebas Parkir atau Pojok Kejutan sebagai tujuan
 function nearestAhead(pos, list) { return Math.min(...list.map(j => (j - pos + 40) % 40 || 40)); }
 function doSurprise(s, pi, depth) {
-  const pl = s.players[pi], opp = other(pi), good = Math.random() < .5;
-  const list = good ? SURPRISE.good : SURPRISE.bad;
-  let c = list[Math.floor(Math.random() * list.length)];
+  const pl = s.players[pi], opp = other(pi);
+  // 50:50 untung/rugi, diambil dari aksi yang belum pernah didapat pemain ini (nomor 0-5 untung, 6-11 rugi)
+  const nG = SURPRISE.good.length, total = nG + SURPRISE.bad.length;
+  const seen = seenList(pl, 'sp', total);
+  const left = [...Array(total).keys()].filter(i => !seen.includes(i));
+  const goodLeft = left.filter(i => i < nG), badLeft = left.filter(i => i >= nG);
+  let good = Math.random() < .5;
+  if (good && !goodLeft.length) good = false;
+  if (!good && !badLeft.length) good = true;
+  const from = good ? goodLeft : badLeft, idx = from[Math.floor(Math.random() * from.length)];
+  seen.push(idx);
+  let c = good ? SURPRISE.good[idx] : SURPRISE.bad[idx - nG];
   const oppProps = propsOf(s, opp);
   const unowned = T.map((t, i) => i).filter(i => T[i].k === 'city' && !s.own[i]);
   // kalau aksinya tidak mungkin dijalankan, ganti dengan aksi sejenis yang pasti bisa
@@ -615,13 +664,27 @@ function pay(s, from, to, amt, why) {
     s.fx.push({ t:'over' });
   }
 }
+// Undian kartu per pemain: acak di antara kartu yang BELUM pernah didapat pemain itu.
+// Setelah semua kartu di tumpukan itu pernah didapat, catatannya dikosongkan dan undian mulai lagi.
+// pl.seen = { ch:[...], cc:[...], sp:[...] } berisi nomor kartu yang sudah keluar untuk pemain tersebut.
+function seenList(pl, key, total) {
+  if (!pl.seen) pl.seen = {};
+  let seen = (pl.seen[key] || []).filter(i => i < total);
+  if (seen.length >= total) seen = [];
+  pl.seen[key] = seen;
+  return seen;
+}
+function drawUnseen(pl, key, total) {
+  const seen = seenList(pl, key, total);
+  const pool = [...Array(total).keys()].filter(i => !seen.includes(i));
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  seen.push(pick);
+  return pick;
+}
 function drawCard(s, pi, k, depth) {
-  const deck = k === 'ch' ? CH : CC, key = k + 'I';
-  // permainan lama punya urutan kartu dengan jumlah berbeda: kocok ulang
-  if (!s.deck[k] || s.deck[k].length !== deck.length) { s.deck[k] = shuffle(deck.length); s.deck[key] = 0; }
-  const card = deck[s.deck[k][s.deck[key] % deck.length]];
-  s.deck[key]++;
+  const deck = k === 'ch' ? CH : CC;
   const pl = s.players[pi], src = 'Kartu ' + (k === 'ch' ? 'Kesempatan' : 'Dana Umum');
+  const card = deck[drawUnseen(pl, k, deck.length)];
   const [a, x, y] = card.a;
   s.fx.push({ t:'card', k, text:card.t, tag:CARD_TAG[a] || 'jalan' });
   log(s, `${pl.name} mengambil kartu ${k === 'ch' ? 'Kesempatan' : 'Dana Umum'}: ${card.t}`);
@@ -1968,22 +2031,75 @@ async function animBuild(i, lv) {
 /* ---- Kamera ---- */
 let fitDist = 20;
 const CAM_DIR = new THREE.Vector3(0, Math.sin(1.0), Math.cos(1.0)).normalize();
+// Layar penuh (menyembunyikan bilah alamat browser). Safari iPhone tidak mendukungnya untuk halaman web,
+// jadi tombolnya hanya ditampilkan kalau tersedia.
+const FS_EL = document.documentElement;
+const FS_OK = !!(FS_EL.requestFullscreen || FS_EL.webkitRequestFullscreen) && (document.fullscreenEnabled !== false);
+const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+async function toggleFull() {
+  try {
+    if (isFull()) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else await (FS_EL.requestFullscreen || FS_EL.webkitRequestFullscreen).call(FS_EL, { navigationUI:'hide' });
+  } catch (e) { toast('Layar penuh tidak bisa dipakai di sini. Coba "Tambahkan ke Layar Utama" dari menu browser.'); }
+}
+function onFullChange() {
+  document.querySelectorAll('[data-fs]').forEach(el => {
+    el.setAttribute('aria-pressed', isFull());
+    if (el.classList.contains('btn')) el.textContent = `Layar penuh: ${isFull() ? 'nyala' : 'mati'}`;
+  });
+  requestAnimationFrame(() => { layout(); resetCam(false); });
+}
+document.addEventListener('fullscreenchange', onFullChange);
+document.addEventListener('webkitfullscreenchange', onFullChange);
+if (!FS_OK) document.querySelectorAll('#btnFull').forEach(el => el.remove());
+const LANDSCAPE = matchMedia('(orientation: landscape) and (max-height: 540px)');   // harus sama dengan media query CSS
+// saat HP diputar: atur ulang tata letak lalu bawa kamera ke posisi pas
+LANDSCAPE.addEventListener('change', () => { requestAnimationFrame(() => { layout(); resetCam(false); }); });
 function layout() {
   const w = stage.clientWidth, h = stage.clientHeight;
   renderer.setSize(w, h);
   camera.aspect = w / h;
   const hud = $('#hud'), dock = $('#dock');
-  const top = hud.hidden ? 0 : hud.offsetHeight + 6, bot = dock.hidden ? 0 : dock.offsetHeight + 6;
-  camera.setViewOffset(w, h, 0, (bot - top) / 2, w, h);
-  camera.updateProjectionMatrix();
-  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const availH = Math.max(160, h - top - bot);
-  const dH = (S * 1.12) / (2 * tanH) * (h / availH);
-  const dW = (S * 1.18) / (2 * tanH * camera.aspect);
-  fitDist = Math.min(70, Math.max(dH, dW) + 1.5);
-  const elev = camera.aspect < .8 ? 1.22 : 1.0;    // layar tegak: kamera lebih tinggi supaya papan tidak terlalu miring
-  CAM_DIR.set(0, Math.sin(elev), Math.cos(elev));
+  const land = LANDSCAPE.matches;
+  if (land) {
+    // landscape HP gaya Get Rich: papan diputar 45 derajat (START di bawah), kamera agak rendah,
+    // lensa lebih sempit supaya mirip isometrik; chip & tombol melayang di atas papan, tidak memakan ruang
+    camera.fov = 26;
+    // geser papan sedikit ke atas: sudut START (terdekat kamera) tampak lebih besar karena perspektif
+    camera.setViewOffset(w, h, 0, h * .05, w, h);
+    camera.updateProjectionMatrix();
+    $('#app').style.setProperty('--mid-x', (w / 2) + 'px');
+    const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const elev = .66, diag = S * Math.SQRT2;          // lebar belah ketupat di lantai
+    const dW = (diag * 1.02) / (2 * tanH * camera.aspect);
+    const dH = (diag * Math.sin(elev) * 1.24) / (2 * tanH);
+    fitDist = Math.min(90, Math.max(dH, dW) + 1);
+    CAM_DIR.set(Math.cos(elev) * Math.SQRT1_2, Math.sin(elev), Math.cos(elev) * Math.SQRT1_2);
+  } else {
+    camera.fov = 36;
+    const top = hud.hidden ? 0 : hud.offsetHeight + 6, bot = dock.hidden ? 0 : dock.offsetHeight + 6;
+    camera.setViewOffset(w, h, 0, (bot - top) / 2, w, h);
+    camera.updateProjectionMatrix();
+    $('#app').style.setProperty('--mid-x', (w / 2) + 'px');
+    const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const availH = Math.max(160, h - top - bot);
+    const dH = (S * 1.12) / (2 * tanH) * (h / availH);
+    const dW = (S * 1.18) / (2 * tanH * camera.aspect);
+    fitDist = Math.min(70, Math.max(dH, dW) + 1.5);
+    const elev = w / availH < .8 ? 1.22 : 1.0;      // layar tegak: kamera lebih tinggi supaya papan tidak terlalu miring
+    CAM_DIR.set(0, Math.sin(elev), Math.cos(elev));
+  }
+  // ruang papan berubah (panel muncul, HP diputar): sesuaikan jarak kamera, kecuali pemain sedang mengatur sendiri
+  if (Math.abs(fitDist - lastFit) > .4) {
+    const first = lastFit === 0; lastFit = fitDist;
+    if (!first && !follow && !userCam) {
+      // tunggu sebentar supaya beberapa perubahan beruntun cukup ditangani sekali
+      clearTimeout(refitT);
+      refitT = setTimeout(() => { if (!follow && !userCam) { camGoal.set(0, 0, 0); zoomGoal = null; resetCam(false); } }, 150);
+    }
+  }
 }
+let lastFit = 0, refitT = 0;
 function resetCam(snap) {
   const goal = CAM_DIR.clone().multiplyScalar(fitDist);
   if (snap) { camera.position.copy(goal); return; }
@@ -2512,6 +2628,7 @@ function openMenu(view = 'main') {
       <button class="btn ghost" data-act="mRules">Cara main</button>
       <button class="btn ghost" data-act="mMusic">Musik latar: ${musicOn ? 'nyala' : 'mati'}</button>
       <button class="btn ghost" data-act="mSound">Efek suara: ${soundOn ? 'nyala' : 'mati'}</button>
+      ${FS_OK ? `<button class="btn ghost" data-fs>Layar penuh: ${isFull() ? 'nyala' : 'mati'}</button>` : ''}
       ${S0.phase !== 'over' ? '<button class="btn gold" data-act="mEnd">Akhiri &amp; hitung kekayaan</button>' : ''}
       <button class="btn ghost" data-act="mExit">Kembali ke menu utama</button>
       <button class="btn" data-act="close">Tutup</button></div></div>`);
@@ -2546,7 +2663,8 @@ function renderUI() {
   renderHUD();
   renderDock();
   if (!playing && S0 && S0.phase === 'over' && $('#modal').hidden) openOver();
-  requestAnimationFrame(layout);
+  // langsung (bukan requestAnimationFrame) supaya tetap jalan walau tab sempat di latar belakang
+  layout();
 }
 
 /* ---- Commit langkah ---- */
@@ -2562,6 +2680,8 @@ async function commit(ns) {
 
 /* ---- Event ---- */
 document.addEventListener('click', e => {
+  const fb = e.target.closest('[data-fs]');
+  if (fb) { toggleFull(); return; }
   const mb = e.target.closest('[data-music]');
   if (mb) { setMusic(!musicOn); if (mb.classList.contains('musictoggle')) mb.textContent = `♪ Musik: ${musicOn ? 'nyala' : 'mati'}`; return; }
   const btn = e.target.closest('button');
@@ -2708,7 +2828,8 @@ function renderLobby() {
       ${savedRoom && onBtn ? `<button class="ticket" data-act="l:resumeRoom"><b>Kembali ke room ${esc(savedRoom)}</b><span>Lanjutkan permainan online</span></button>` : ''}
       <button class="ticket primary" data-act="l:goOnline" ${onBtn ? '' : 'disabled'}><b>Main online</b><span>Masing-masing pakai HP sendiri</span></button>
       <button class="ticket" data-act="l:goLocal"><b>Main berdua di satu HP</b><span>Gantian pegang perangkat</span></button>
-      <button class="musictoggle" data-music aria-pressed="${musicOn}">♪ Musik: ${musicOn ? 'nyala' : 'mati'}</button>
+      <div class="lobtoggles"><button class="musictoggle" data-music aria-pressed="${musicOn}">♪ Musik: ${musicOn ? 'nyala' : 'mati'}</button>
+      ${FS_OK ? `<button class="musictoggle" data-fs>⛶ Layar penuh</button>` : ''}</div>
       <p class="note">${onlineState === 'checking' ? 'Memeriksa mode online…'
         : onlineState === 'off' ? 'Mode online belum tersedia di alamat ini. Main berdua di satu HP tetap bisa.'
         : onlineKind === 'server' ? 'Mode online: buka alamat ini di HP masing-masing. Satu orang membuat room, satunya memasukkan kode.'
